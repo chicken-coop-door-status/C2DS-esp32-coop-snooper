@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/timers.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -15,8 +16,16 @@
 #include "mbedtls/debug.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/ssl.h"
+#include "cJSON.h"
+#include "driver/gpio.h"
+#include "driver/ledc.h"
 
 #include "main.h"
+
+// LED GPIOs
+#define RED_PIN GPIO_NUM_9
+#define GREEN_PIN GPIO_NUM_8
+#define BLUE_PIN GPIO_NUM_7
 
 // Certificate paths
 extern const uint8_t _binary_root_CA_crt_start[] asm("_binary_root_CA_crt_start");
@@ -27,6 +36,7 @@ extern const uint8_t _binary_coop_snooper_private_key_start[] asm("_binary_coop_
 extern const uint8_t _binary_coop_snooper_private_key_end[] asm("_binary_coop_snooper_private_key_end");
 
 static const char *TAG = "MQTT_EXAMPLE";
+static bool mqtt_message_received = false;
 
 // Network timeout in milliseconds
 #define NETWORK_TIMEOUT_MS 5000
@@ -89,6 +99,73 @@ static void wifi_init_sta(void)
              WIFI_SSID, WIFI_PASS);
 }
 
+// Function to initialize LED PWM
+void init_led_pwm(void)
+{
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LEDC_TIMER_0,
+        .duty_resolution  = LEDC_TIMER_13_BIT,
+        .freq_hz          = 5000,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    ledc_channel_config_t ledc_channel = {
+        .channel    = LEDC_CHANNEL_0,
+        .duty       = 0,
+        .gpio_num   = RED_PIN,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .hpoint     = 0,
+        .timer_sel  = LEDC_TIMER_0
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+
+    ledc_channel.channel    = LEDC_CHANNEL_1;
+    ledc_channel.gpio_num   = GREEN_PIN;
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+
+    ledc_channel.channel    = LEDC_CHANNEL_2;
+    ledc_channel.gpio_num   = BLUE_PIN;
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+}
+
+// Function to set LED color with PWM
+void set_led_color(uint32_t red, uint32_t green, uint32_t blue) {
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, red));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, green));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1));
+
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, blue));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2));
+}
+
+// Task to pulse LED white
+void pulse_led_task(void *pvParameter) {
+    int duty = 0;
+    int direction = 1;
+
+    while (!mqtt_message_received) {
+        duty += direction * 128;
+        if (duty >= 8192) {
+            duty = 8192;
+            direction = -1;
+        } else if (duty <= 0) {
+            duty = 0;
+            direction = 1;
+        }
+
+        set_led_color(duty, duty, duty);
+        vTaskDelay(pdMS_TO_TICKS(30));
+    }
+
+    // Turn off the pulsing once a message is received
+    set_led_color(0, 0, 0);
+    vTaskDelete(NULL);
+}
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_mqtt_event_handle_t event = event_data;
@@ -118,7 +195,25 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
-        // Add code to handle the message and control the LED here
+
+        // Stop pulsing and set LED color based on message
+        mqtt_message_received = true;
+
+        // Check if the topic is "coop/status"
+        if (strncmp(event->topic, "coop/status", event->topic_len) == 0) {
+            // Parse the JSON message
+            cJSON *json = cJSON_Parse(event->data);
+            if (json == NULL) {
+                ESP_LOGE(TAG, "Failed to parse JSON");
+            } else {
+                cJSON *message = cJSON_GetObjectItem(json, "message");
+                if (cJSON_IsString(message) && (strcmp(message->valuestring, "error") == 0)) {
+                    // Turn on the LED to RED
+                    set_led_color(8192, 0, 0);
+                }
+                cJSON_Delete(json);
+            }
+        }
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -190,11 +285,17 @@ void app_main(void)
     mbedtls_ssl_conf_dbg(&conf, tls_debug_callback, NULL);
     
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
+
+    // Initialize LED PWM
+    init_led_pwm();
+
+    // Create a task to pulse the LED
+    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, NULL, 5, NULL);
 }
