@@ -1,0 +1,2 @@
+main/main.h filter=git-crypt diff=git-crypt
+main/certs/* filter=git-crypt diff=git-crypt
