@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <inttypes.h> // Include this header for PRIu32
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -23,9 +24,9 @@
 #include "main.h"
 
 // LED GPIOs
-#define RED_PIN GPIO_NUM_9
-#define GREEN_PIN GPIO_NUM_8
-#define BLUE_PIN GPIO_NUM_7
+#define RED_PIN GPIO_NUM_1
+#define GREEN_PIN GPIO_NUM_2
+#define BLUE_PIN GPIO_NUM_3
 
 // Certificate paths
 extern const uint8_t _binary_root_CA_crt_start[] asm("_binary_root_CA_crt_start");
@@ -132,6 +133,7 @@ void init_led_pwm(void)
 
 // Function to set LED color with PWM
 void set_led_color(uint32_t red, uint32_t green, uint32_t blue) {
+    ESP_LOGI(TAG, "Setting LED colors - RED: %" PRIu32 ", GREEN: %" PRIu32 ", BLUE: %" PRIu32, red, green, blue);
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, red));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 
@@ -199,20 +201,25 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         // Stop pulsing and set LED color based on message
         mqtt_message_received = true;
 
-        // Check if the topic is "coop/status"
-        if (strncmp(event->topic, "coop/status", event->topic_len) == 0) {
-            // Parse the JSON message
-            cJSON *json = cJSON_Parse(event->data);
-            if (json == NULL) {
-                ESP_LOGE(TAG, "Failed to parse JSON");
-            } else {
-                cJSON *message = cJSON_GetObjectItem(json, "message");
-                if (cJSON_IsString(message) && (strcmp(message->valuestring, "error") == 0)) {
+        // Check if the message is a JSON with a "message" field
+        cJSON *json = cJSON_Parse(event->data);
+        if (json == NULL) {
+            ESP_LOGE(TAG, "Failed to parse JSON");
+        } else {
+            cJSON *message = cJSON_GetObjectItem(json, "message");
+            if (cJSON_IsString(message)) {
+                ESP_LOGI(TAG, "Parsed message: %s", message->valuestring);
+                if (strcmp(message->valuestring, "error") == 0) {
                     // Turn on the LED to RED
+                    ESP_LOGI(TAG, "Setting LED to RED");
                     set_led_color(8192, 0, 0);
+                } else {
+                    ESP_LOGI(TAG, "Received unknown message: %s", message->valuestring);
                 }
-                cJSON_Delete(json);
+            } else {
+                ESP_LOGE(TAG, "JSON message item is not a string");
             }
+            cJSON_Delete(json);
         }
         break;
     case MQTT_EVENT_ERROR:
