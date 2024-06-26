@@ -38,6 +38,7 @@ extern const uint8_t _binary_coop_snooper_private_key_end[] asm("_binary_coop_sn
 
 static const char *TAG = "MQTT_EXAMPLE";
 static bool mqtt_message_received = false;
+static bool mqtt_setup_complete = false;
 
 // Network timeout in milliseconds
 #define NETWORK_TIMEOUT_MS 5000
@@ -144,12 +145,14 @@ void set_led_color(uint32_t red, uint32_t green, uint32_t blue) {
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2));
 }
 
-// Task to pulse LED white
+// Task to pulse LED
 void pulse_led_task(void *pvParameter) {
     int duty = 0;
     int direction = 1;
+    uint32_t red = 0, green = 0, blue = 0;
+    bool is_white = (bool)pvParameter;
 
-    while (!mqtt_message_received) {
+    while (!mqtt_setup_complete || (mqtt_setup_complete && is_white)) {
         duty += direction * 128;
         if (duty >= 8192) {
             duty = 8192;
@@ -159,11 +162,17 @@ void pulse_led_task(void *pvParameter) {
             direction = 1;
         }
 
-        set_led_color(duty, duty, duty);
+        if (!mqtt_setup_complete) {
+            red = green = blue = duty; // Pulse white
+        } else if (is_white) {
+            blue = duty; // Pulse blue on error
+        }
+
+        set_led_color(red, green, blue);
         vTaskDelay(pdMS_TO_TICKS(30));
     }
 
-    // Turn off the pulsing once a message is received
+    // Turn off the pulsing once setup is complete and no error
     set_led_color(0, 0, 0);
     vTaskDelete(NULL);
 }
@@ -180,6 +189,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         msg_id = esp_mqtt_client_subscribe(client, MQTT_TOPIC, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+        mqtt_setup_complete = true; // MQTT setup is complete
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -198,9 +208,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
 
-        // Stop pulsing and set LED color based on message
-        mqtt_message_received = true;
-
         // Check if the message is a JSON with a "message" field
         cJSON *json = cJSON_Parse(event->data);
         if (json == NULL) {
@@ -209,10 +216,19 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             cJSON *message = cJSON_GetObjectItem(json, "message");
             if (cJSON_IsString(message)) {
                 ESP_LOGI(TAG, "Parsed message: %s", message->valuestring);
-                if (strcmp(message->valuestring, "error") == 0) {
-                    // Turn on the LED to RED
+                mqtt_message_received = true;
+                if (strcmp(message->valuestring, "open") == 0) {
+                    // Set LED to RED
                     ESP_LOGI(TAG, "Setting LED to RED");
                     set_led_color(8192, 0, 0);
+                } else if (strcmp(message->valuestring, "closed") == 0) {
+                    // Set LED to GREEN
+                    ESP_LOGI(TAG, "Setting LED to GREEN");
+                    set_led_color(0, 8192, 0);
+                } else if (strcmp(message->valuestring, "error") == 0) {
+                    // Start pulsing BLUE
+                    ESP_LOGI(TAG, "Setting LED to pulse BLUE");
+                    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, (void*)true, 5, NULL);
                 } else {
                     ESP_LOGI(TAG, "Received unknown message: %s", message->valuestring);
                 }
@@ -303,6 +319,6 @@ void app_main(void)
     // Initialize LED PWM
     init_led_pwm();
 
-    // Create a task to pulse the LED
-    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, NULL, 5, NULL);
+    // Create a task to pulse the LED in white
+    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, (void*)false, 5, NULL);
 }
