@@ -48,8 +48,9 @@ static void mqtt_app_start(void);
 
 static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str)
 {
-    const char *MBEDTLS_DEBUG_LEVEL[] = {"Error", "Warning", "Info", "Debug", "Verbose"};
-    ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
+    // Commented out to disable verbose debugging
+    // const char *MBEDTLS_DEBUG_LEVEL[] = {"Error", "Warning", "Info", "Debug", "Verbose"};
+    // ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
 }
 
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
@@ -134,7 +135,8 @@ void init_led_pwm(void)
 
 // Function to set LED color with PWM
 void set_led_color(uint32_t red, uint32_t green, uint32_t blue) {
-    ESP_LOGI(TAG, "Setting LED colors - RED: %" PRIu32 ", GREEN: %" PRIu32 ", BLUE: %" PRIu32, red, green, blue);
+    // Commented out to disable verbose debugging
+    // ESP_LOGI(TAG, "Setting LED colors - RED: %" PRIu32 ", GREEN: %" PRIu32 ", BLUE: %" PRIu32, red, green, blue);
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, red));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 
@@ -300,7 +302,8 @@ static void mqtt_app_start(void)
 
 void app_main(void)
 {
-    mbedtls_debug_set_threshold(4); // Set to the highest debug level
+    // Set mbedtls debug threshold to 0 to disable verbose debugging
+    mbedtls_debug_set_threshold(0); 
     
     // Initialize the mbedtls SSL configuration
     mbedtls_ssl_config conf;
