@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
-#include <inttypes.h> // Include this header for PRIu32
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -48,7 +48,7 @@ static void mqtt_app_start(void);
 
 static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str)
 {
-    // Commented out to disable verbose debugging
+    // Uncomment to enable verbose debugging
     // const char *MBEDTLS_DEBUG_LEVEL[] = {"Error", "Warning", "Info", "Debug", "Verbose"};
     // ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
 }
@@ -135,8 +135,7 @@ void init_led_pwm(void)
 
 // Function to set LED color with PWM
 void set_led_color(uint32_t red, uint32_t green, uint32_t blue) {
-    // Commented out to disable verbose debugging
-    // ESP_LOGI(TAG, "Setting LED colors - RED: %" PRIu32 ", GREEN: %" PRIu32 ", BLUE: %" PRIu32, red, green, blue);
+    ESP_LOGI(TAG, "Setting LED colors - RED: %" PRIu32 ", GREEN: %" PRIu32 ", BLUE: %" PRIu32, red, green, blue);
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, red));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
 
@@ -152,9 +151,9 @@ void pulse_led_task(void *pvParameter) {
     int duty = 0;
     int direction = 1;
     uint32_t red = 0, green = 0, blue = 0;
-    bool is_white = (bool)pvParameter;
+    bool is_blue = (bool)pvParameter;
 
-    while (!mqtt_setup_complete || (mqtt_setup_complete && is_white)) {
+    while (!mqtt_setup_complete || (mqtt_setup_complete && is_blue)) {
         duty += direction * 128;
         if (duty >= 8192) {
             duty = 8192;
@@ -166,7 +165,7 @@ void pulse_led_task(void *pvParameter) {
 
         if (!mqtt_setup_complete) {
             red = green = blue = duty; // Pulse white
-        } else if (is_white) {
+        } else if (is_blue) {
             blue = duty; // Pulse blue on error
         }
 
@@ -177,6 +176,26 @@ void pulse_led_task(void *pvParameter) {
     // Turn off the pulsing once setup is complete and no error
     set_led_color(0, 0, 0);
     vTaskDelete(NULL);
+}
+
+// Function to set LED color based on state
+void set_led_color_based_on_state(const char *state) {
+    if (strcmp(state, "SENSING_DOOR_OPEN") == 0) {
+        set_led_color(8192, 0, 0); // Red
+    } else if (strcmp(state, "SENSING_DOOR_CLOSED") == 0) {
+        set_led_color(0, 8192, 0); // Green
+    } else if (strcmp(state, "SENSING_DOOR_CLOSED_ERROR") == 0 ||
+               strcmp(state, "SENSING_DOOR_OPEN_ERROR") == 0 ||
+               strcmp(state, "MONITOR_SENSING_TIMEOUT") == 0 ||
+               strcmp(state, "MONITOR_SENSING_EXCEPTION") == 0 ||
+               strcmp(state, "MONITOR_TWILIGHT_TIMEOUT") == 0 ||
+               strcmp(state, "MONITOR_TWILIGHT_EXCEPTION") == 0) {
+        xTaskCreate(&pulse_led_task, "pulse_led_task", 4096, (void*)false, 5, NULL); // Flashing red with increased stack size
+    } else if (strcmp(state, "SENSING_DOOR_SENSOR_ERROR") == 0) {
+        xTaskCreate(&pulse_led_task, "pulse_led_task", 4096, (void*)true, 5, NULL); // Flashing blue with increased stack size
+    } else {
+        ESP_LOGI(TAG, "Received unknown state: %s", state);
+    }
 }
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -192,6 +211,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         msg_id = esp_mqtt_client_subscribe(client, MQTT_TOPIC, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
         mqtt_setup_complete = true; // MQTT setup is complete
+        msg_id = esp_mqtt_client_publish(client, "coop/status/request", "request", 0, 0, 0); // Publish status request
+        ESP_LOGI(TAG, "sent status request, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -210,34 +231,52 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
 
-        // Check if the message is a JSON with a "message" field
-        cJSON *json = cJSON_Parse(event->data);
-        if (json == NULL) {
-            ESP_LOGE(TAG, "Failed to parse JSON");
-        } else {
-            cJSON *message = cJSON_GetObjectItem(json, "message");
-            if (cJSON_IsString(message)) {
-                ESP_LOGI(TAG, "Parsed message: %s", message->valuestring);
-                mqtt_message_received = true;
-                if (strcmp(message->valuestring, "open") == 0) {
-                    // Set LED to RED
-                    ESP_LOGI(TAG, "Setting LED to RED");
-                    set_led_color(8192, 0, 0);
-                } else if (strcmp(message->valuestring, "closed") == 0) {
-                    // Set LED to GREEN
-                    ESP_LOGI(TAG, "Setting LED to GREEN");
-                    set_led_color(0, 8192, 0);
-                } else if (strcmp(message->valuestring, "error") == 0) {
-                    // Start pulsing BLUE
-                    ESP_LOGI(TAG, "Setting LED to pulse BLUE");
-                    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, (void*)true, 5, NULL);
-                } else {
-                    ESP_LOGI(TAG, "Received unknown message: %s", message->valuestring);
-                }
+        if (strncmp(event->topic, "coop/status/response", event->topic_len) == 0) {
+            ESP_LOGW(TAG, "Received coop/status/response");
+            // Handle the status response
+            cJSON *json = cJSON_Parse(event->data);
+            if (json == NULL) {
+                ESP_LOGE(TAG, "Failed to parse JSON");
             } else {
-                ESP_LOGE(TAG, "JSON message item is not a string");
+                cJSON *state = cJSON_GetObjectItem(json, "state");
+                if (cJSON_IsString(state)) {
+                    ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
+                    set_led_color_based_on_state(state->valuestring);
+                } else {
+                    ESP_LOGE(TAG, "JSON state item is not a string");
+                }
+                cJSON_Delete(json);
             }
-            cJSON_Delete(json);
+        } else {
+            // Check if the message is a JSON with a "message" field
+            cJSON *json = cJSON_Parse(event->data);
+            if (json == NULL) {
+                ESP_LOGE(TAG, "Failed to parse JSON");
+            } else {
+                cJSON *message = cJSON_GetObjectItem(json, "message");
+                if (cJSON_IsString(message)) {
+                    ESP_LOGI(TAG, "Parsed message: %s", message->valuestring);
+                    mqtt_message_received = true;
+                    if (strcmp(message->valuestring, "open") == 0) {
+                        // Set LED to RED
+                        ESP_LOGI(TAG, "Setting LED to RED");
+                        set_led_color(8192, 0, 0);
+                    } else if (strcmp(message->valuestring, "closed") == 0) {
+                        // Set LED to GREEN
+                        ESP_LOGI(TAG, "Setting LED to GREEN");
+                        set_led_color(0, 8192, 0);
+                    } else if (strcmp(message->valuestring, "error") == 0) {
+                        // Start pulsing BLUE
+                        ESP_LOGI(TAG, "Setting LED to pulse BLUE");
+                        xTaskCreate(&pulse_led_task, "pulse_led_task", 4096, (void*)true, 5, NULL);
+                    } else {
+                        ESP_LOGI(TAG, "Received unknown message: %s", message->valuestring);
+                    }
+                } else {
+                    ESP_LOGE(TAG, "JSON message item is not a string");
+                }
+                cJSON_Delete(json);
+            }
         }
         break;
     case MQTT_EVENT_ERROR:
@@ -260,6 +299,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 static void mqtt_app_start(void)
 {
+    // Set mbedtls debug threshold to a higher level for detailed logs
+    mbedtls_debug_set_threshold(4);
+
     const esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
@@ -291,13 +333,22 @@ static void mqtt_app_start(void)
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
 
     esp_err_t err;
+    int retry_count = 0;
+    const int max_retries = 5;
+    const int retry_delay_ms = 5000;
+
     do {
         err = esp_mqtt_client_start(client);
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start MQTT client, retrying in 5 seconds...");
-            vTaskDelay(pdMS_TO_TICKS(5000)); // Delay for 5 seconds
+            ESP_LOGE(TAG, "Failed to start MQTT client, retrying in %d seconds... (%d/%d)", retry_delay_ms / 1000, retry_count + 1, max_retries);
+            vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
+            retry_count++;
         }
-    } while (err != ESP_OK);
+    } while (err != ESP_OK && retry_count < max_retries);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start MQTT client after %d retries", retry_count);
+    }
 }
 
 void app_main(void)
@@ -323,5 +374,5 @@ void app_main(void)
     init_led_pwm();
 
     // Create a task to pulse the LED in white
-    xTaskCreate(&pulse_led_task, "pulse_led_task", 2048, (void*)false, 5, NULL);
+    xTaskCreate(&pulse_led_task, "pulse_led_task", 4096, (void*)false, 5, NULL);
 }
