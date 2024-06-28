@@ -52,8 +52,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-        printf("DATA=%.*s\r\n", event->data_len, event->data);
+        ESP_LOGI(TAG,"TOPIC=%.*s\r", event->topic_len, event->topic);
+        ESP_LOGI(TAG,"DATA=%.*s\r", event->data_len, event->data);
 
         if (strncmp(event->topic, "coop/status", event->topic_len) == 0) {
             ESP_LOGW(TAG, "Received coop/status");
