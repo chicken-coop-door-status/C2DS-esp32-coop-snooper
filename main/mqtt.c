@@ -16,6 +16,10 @@ bool mqtt_message_received = false;
 // Define NETWORK_TIMEOUT_MS
 #define NETWORK_TIMEOUT_MS 10000  // Example value, set as appropriate for your application
 
+#define COOP_STATUS_TOPIC "coop/status"
+#define COOP_STATUS_REQUEST_TOPIC "coop/status/request"
+#define COOP_STATUS_RESPONSE_TOPIC "coop/status/response"
+
 // Include binary data
 extern const uint8_t _binary_coop_snooper_cert_pem_start[];
 extern const uint8_t _binary_coop_snooper_private_key_start[];
@@ -32,10 +36,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        msg_id = esp_mqtt_client_subscribe(client, "coop/status", 0);
+        msg_id = esp_mqtt_client_subscribe(client, COOP_STATUS_TOPIC, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
         mqtt_setup_complete = true; // MQTT setup is complete
-        msg_id = esp_mqtt_client_publish(client, "coop/status/request", "request", 0, 0, 0); // Publish status request
+        msg_id = esp_mqtt_client_publish(client, COOP_STATUS_REQUEST_TOPIC, "request", 0, 0, 0); // Publish status request
         ESP_LOGI(TAG, "sent status request, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
@@ -55,7 +59,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG,"TOPIC=%.*s\r", event->topic_len, event->topic);
         ESP_LOGI(TAG,"DATA=%.*s\r", event->data_len, event->data);
 
-        if (strncmp(event->topic, "coop/status", event->topic_len) == 0) {
+        if (strncmp(event->topic, COOP_STATUS_TOPIC, event->topic_len) == 0) {
             ESP_LOGW(TAG, "Received coop/status");
 
             // Handle the status response
