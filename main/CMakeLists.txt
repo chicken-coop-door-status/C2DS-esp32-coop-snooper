@@ -2,7 +2,13 @@
 cmake_minimum_required(VERSION 3.5)
 
 # Define the source files
-set(SOURCES "main.c")
+set(SOURCES 
+    "main.c" 
+    "wifi.c" 
+    "mqtt.c" 
+    "led.c" 
+    "state_handler.c"
+)
 
 # Specify the directory containing the header files
 set(INCLUDES ".")
