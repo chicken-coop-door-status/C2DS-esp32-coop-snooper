@@ -72,37 +72,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 }
                 cJSON_Delete(json);
             }
-        } else {
-            // Check if the message is a JSON with a "message" field
-            cJSON *json = cJSON_Parse(event->data);
-            if (json == NULL) {
-                ESP_LOGE(TAG, "Failed to parse JSON");
-            } else {
-                cJSON *message = cJSON_GetObjectItem(json, "message");
-                if (cJSON_IsString(message)) {
-                    ESP_LOGI(TAG, "Parsed message: %s", message->valuestring);
-                    mqtt_message_received = true;
-                    if (strcmp(message->valuestring, "open") == 0) {
-                        // Set LED to RED
-                        ESP_LOGI(TAG, "Setting LED to RED");
-                        set_led_color(8192, 0, 0);
-                    } else if (strcmp(message->valuestring, "closed") == 0) {
-                        // Set LED to GREEN
-                        ESP_LOGI(TAG, "Setting LED to GREEN");
-                        set_led_color(0, 8192, 0);
-                    } else if (strcmp(message->valuestring, "error") == 0) {
-                        // Start pulsing BLUE
-                        ESP_LOGI(TAG, "Setting LED to pulse BLUE");
-                        set_led_color(0, 0, 8192); // Blue for error
-                    } else {
-                        ESP_LOGI(TAG, "Received unknown message: %s", message->valuestring);
-                    }
-                } else {
-                    ESP_LOGE(TAG, "JSON message item is not a string");
-                }
-                cJSON_Delete(json);
-            }
-        }
+        } 
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
