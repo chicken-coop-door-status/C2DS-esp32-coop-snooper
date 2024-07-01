@@ -36,7 +36,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        msg_id = esp_mqtt_client_subscribe(client, COOP_STATUS_RESPONSE_TOPIC, 0);
+        msg_id = esp_mqtt_client_subscribe(client, COOP_STATUS_TOPIC, 0);
         ESP_LOGI(TAG, "Subscribed to COOP_STATUS_RESPONSE_TOPIC, msg_id=%d", msg_id);
         mqtt_setup_complete = true; // MQTT setup is complete
         msg_id = esp_mqtt_client_publish(client, COOP_STATUS_REQUEST_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
@@ -70,25 +70,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 if (cJSON_IsString(state)) {
                     ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
                     set_led_color_based_on_state(state->valuestring);
-                } else {
-                    ESP_LOGE(TAG, "JSON state item is not a string");
-                }
-                cJSON_Delete(json);
-            }
-        } else if (strncmp(event->topic, COOP_STATUS_RESPONSE_TOPIC, event->topic_len) == 0)
-        {
-            ESP_LOGW(TAG, "Received topic %s", COOP_STATUS_RESPONSE_TOPIC);
-            // Handle the status response
-            cJSON *json = cJSON_Parse(event->data);
-            if (json == NULL) {
-                ESP_LOGE(TAG, "Failed to parse JSON");
-            } else {
-                cJSON *state = cJSON_GetObjectItem(json, "state");
-                if (cJSON_IsString(state)) {
-                    ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
-                    set_led_color_based_on_state(state->valuestring);
-                    msg_id = esp_mqtt_client_subscribe(client, COOP_STATUS_TOPIC, 0);
-                    ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
                 } else {
                     ESP_LOGE(TAG, "JSON state item is not a string");
                 }

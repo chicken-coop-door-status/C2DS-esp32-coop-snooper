@@ -9,20 +9,16 @@
 
 static const char *TAG = "STATE_HANDLER";
 
+
 void set_led_color_based_on_state(const char *state) {
-    if (strcmp(state, "SENSING_DOOR_OPEN") == 0) {
+    if (strcmp(state, "CHICKEN_COOP_DOOR_OPEN_IN_DAYTIME_OK") == 0) {
         current_led_state = LED_RED;
-    } else if (strcmp(state, "SENSING_DOOR_CLOSED") == 0) {
+    } else if (strcmp(state, "CHICKEN_COOP_DOOR_CLOSED_AT_NIGHT_OK") == 0) {
         current_led_state = LED_GREEN;
-    } else if (strcmp(state, "SENSING_DOOR_CLOSED_ERROR") == 0 ||
-               strcmp(state, "SENSING_DOOR_OPEN_ERROR") == 0 ||
-               strcmp(state, "MONITOR_SENSING_TIMEOUT") == 0 ||
-               strcmp(state, "MONITOR_SENSING_EXCEPTION") == 0 ||
-               strcmp(state, "MONITOR_TWILIGHT_TIMEOUT") == 0 ||
-               strcmp(state, "MONITOR_TWILIGHT_EXCEPTION") == 0) {
+    } else if (strcmp(state, "CHICKEN_COOP_DOOR_CLOSED_IN_DAYTIME_ERROR") == 0 ||
+               strcmp(state, "CHICKEN_COOP_DOOR_OPEN_AT_NIGHT_ERROR") == 0 ||
+               strcmp(state, "CHICKEN_COOP_DOOR_SENSOR_FAILURE_ERROR") == 0) {
         current_led_state = LED_FLASHING_RED;
-    } else if (strcmp(state, "SENSING_DOOR_SENSOR_ERROR") == 0) {
-        current_led_state = LED_FLASHING_BLUE;
     } else {
         ESP_LOGI(TAG, "Received unknown state: %s", state);
     }
