@@ -4,9 +4,9 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-#define RED_PIN GPIO_NUM_1
-#define GREEN_PIN GPIO_NUM_2
-#define BLUE_PIN GPIO_NUM_3
+#define RED_PIN GPIO_NUM_16
+#define GREEN_PIN GPIO_NUM_17
+#define BLUE_PIN GPIO_NUM_18
 
 static const char *TAG = "LED";
 

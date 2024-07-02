@@ -1,5 +1,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "audio_player.h"
 #include "driver/gpio.h"
@@ -12,6 +13,7 @@ extern const uint8_t squawk_mp3_end[] asm("_binary_squawk_mp3_end");
 
 i2s_chan_handle_t i2s_tx_chan;
 i2s_chan_handle_t i2s_rx_chan;
+extern SemaphoreHandle_t audioSemaphore;  // Use the semaphore defined in main.c
 
 esp_err_t bsp_i2s_write(void * audio_buffer, size_t len, size_t *bytes_written, uint32_t timeout_ms)
 {
@@ -47,28 +49,32 @@ void audio_player_task(void *param) {
         .priority = 0,
         .coreID = 0
     };
-    
+
     ESP_ERROR_CHECK(audio_player_new(config));
 
     const uint8_t *mp3_start = squawk_mp3_start;
     const uint8_t *mp3_end = squawk_mp3_end;
     size_t mp3_size = mp3_end - mp3_start;
 
-    FILE *fp = fmemopen((void*)mp3_start, mp3_size, "rb");
-    if (fp == NULL) {
-        ESP_LOGE(TAG, "Failed to open MP3 file");
-        vTaskDelete(NULL);
-        return;
+    while (true) {
+        // Wait for semaphore to be given before playing audio
+        if (xSemaphoreTake(audioSemaphore, portMAX_DELAY) == pdTRUE) {
+            FILE *fp = fmemopen((void*)mp3_start, mp3_size, "rb");
+            if (fp == NULL) {
+                ESP_LOGE(TAG, "Failed to open MP3 file");
+                continue;
+            }
+
+            ESP_ERROR_CHECK(audio_player_play(fp));
+
+            while (audio_player_get_state() == AUDIO_PLAYER_STATE_PLAYING) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+
+            fclose(fp);
+            ESP_ERROR_CHECK(audio_player_delete());
+        }
     }
-
-    ESP_ERROR_CHECK(audio_player_play(fp));
-
-    while (audio_player_get_state() == AUDIO_PLAYER_STATE_PLAYING) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-
-    fclose(fp);
-    ESP_ERROR_CHECK(audio_player_delete());
 
     vTaskDelete(NULL);
 }

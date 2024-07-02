@@ -12,11 +12,11 @@ extern i2s_chan_handle_t i2s_tx_chan;
 extern i2s_chan_handle_t i2s_rx_chan;
 
 /* Audio */
-#define BSP_I2S_SCLK          (GPIO_NUM_17)
-#define BSP_I2S_MCLK          (GPIO_NUM_2)
-#define BSP_I2S_LCLK          (GPIO_NUM_47)
-#define BSP_I2S_DOUT          (GPIO_NUM_15) // To Codec ES8311
-#define BSP_I2S_DSIN          (GPIO_NUM_16) // From ADC ES7210
+#define BSP_I2S_SCLK          (GPIO_NUM_14)
+#define BSP_I2S_MCLK          (GPIO_NUM_2)  // If needed, else set to -1 or I2S_PIN_NO_CHANGE
+#define BSP_I2S_LCLK          (GPIO_NUM_27)
+#define BSP_I2S_DOUT          (GPIO_NUM_21) // To Codec ES8311
+#define BSP_I2S_DSIN          (I2S_PIN_NO_CHANGE)  // Not used in this configuration
 #define BSP_POWER_AMP_IO      (GPIO_NUM_46)
 #define BSP_MUTE_STATUS       (GPIO_NUM_1)
 
