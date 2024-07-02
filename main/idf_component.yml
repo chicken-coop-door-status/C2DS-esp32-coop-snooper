@@ -1,7 +1,6 @@
 ## IDF Component Manager Manifest File
 dependencies:
   chmorgan/esp-libhelix-mp3: "^1.0.3"
-  chmorgan/esp-audio-player: "^1.0.7"
   ## Required IDF version
   idf:
     version: ">=4.1.0"

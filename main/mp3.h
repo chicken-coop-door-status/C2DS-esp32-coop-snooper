@@ -2,14 +2,20 @@
 #define SNOOPER_MP3_H
 
 #include "esp_err.h"
-#include "driver/i2s.h"
 #include "driver/i2s_std.h"
-#include "audio_player.h"
+#include "freertos/semphr.h"
+#include "mp3dec.h"
 
 #define CONFIG_BSP_I2S_NUM 1
 
+#ifndef I2S_PIN_NO_CHANGE
+#define I2S_PIN_NO_CHANGE (-1)
+#endif
+
 extern i2s_chan_handle_t i2s_tx_chan;
 extern i2s_chan_handle_t i2s_rx_chan;
+
+extern SemaphoreHandle_t audioSemaphore;
 
 /* Audio */
 #define BSP_I2S_SCLK          (GPIO_NUM_14)
@@ -19,7 +25,6 @@ extern i2s_chan_handle_t i2s_rx_chan;
 #define BSP_I2S_DSIN          (I2S_PIN_NO_CHANGE)  // Not used in this configuration
 #define BSP_POWER_AMP_IO      (GPIO_NUM_46)
 #define BSP_MUTE_STATUS       (GPIO_NUM_1)
-
 
 #define BSP_I2S_GPIO_CFG       \
     {                          \
@@ -46,7 +51,7 @@ extern i2s_chan_handle_t i2s_rx_chan;
 esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config, i2s_chan_handle_t *tx_channel, i2s_chan_handle_t *rx_channel);
 
 // Function to mute/unmute audio
-esp_err_t audio_mute_function(AUDIO_PLAYER_MUTE_SETTING setting);
+esp_err_t audio_mute_function(int setting);
 
 // Function to reconfigure I2S clock
 esp_err_t bsp_i2s_reconfig_clk(uint32_t rate, uint32_t bits_cfg, i2s_slot_mode_t ch);
@@ -57,4 +62,7 @@ esp_err_t bsp_i2s_write(void *audio_buffer, size_t len, size_t *bytes_written, u
 // FreeRTOS task for MP3 playback
 void audio_player_task(void *param);
 
-#endif // MP3_H
+// Function to set the audio playback status
+void set_audio_playback(bool status);
+
+#endif // SNOOPER_MP3_H

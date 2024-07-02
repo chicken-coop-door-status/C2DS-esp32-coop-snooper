@@ -7,3 +7,4 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Define the project name
 project("coop-snooper")
 
+spiffs_create_partition_image(storage spiffs_files FLASH_IN_PROJECT)

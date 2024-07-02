@@ -6,6 +6,7 @@
 #include <string.h> // For string manipulation functions
 #include "mbedtls/ssl.h" // For mbedtls functions
 #include "esp_log.h"
+#include "mp3.h"
 
 static const char *TAG = "STATE_HANDLER";
 
@@ -18,6 +19,8 @@ void set_led_color_based_on_state(const char *state) {
                strcmp(state, "CHICKEN_COOP_DOOR_OPEN_AT_NIGHT_ERROR") == 0 ||
                strcmp(state, "CHICKEN_COOP_DOOR_SENSOR_FAILURE_ERROR") == 0) {
         current_led_state = LED_FLASHING_RED;
+        ESP_LOGI(TAG, "Playing audio file for error state");
+        set_audio_playback(true);
     } else {
         ESP_LOGI(TAG, "Received unknown state: %s", state);
     }

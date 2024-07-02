@@ -11,6 +11,7 @@
 #include "mp3.h"  // Include the mp3 header
 #include "esp_task_wdt.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
+#include "spiffs.h"
 
 static const char *TAG = "COOP_SNOOPER";
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
@@ -34,6 +35,7 @@ void app_main(void)
     //     ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_config));
     // }
     // ESP_ERROR_CHECK(esp_task_wdt_add(NULL)); // Add the current task to the watchdog
+    init_spiffs();
 
     ESP_LOGI(TAG, "Initializing LED PWM");
     init_led_pwm();
@@ -73,8 +75,7 @@ void app_main(void)
         return;
     }
 
-    i2s_std_config_t std_cfg = BSP_I2S_DUPLEX_MONO_CFG(44100);
-    ESP_ERROR_CHECK(bsp_audio_init(&std_cfg, &i2s_tx_chan, &i2s_rx_chan));
+    bsp_audio_init(NULL, &i2s_tx_chan, &i2s_rx_chan);
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
     // Infinite loop to prevent exiting app_main
