@@ -6,3 +6,4 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 # Define the project name
 project("coop-snooper")
+

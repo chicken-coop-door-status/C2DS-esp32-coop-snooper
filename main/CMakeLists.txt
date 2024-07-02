@@ -8,6 +8,7 @@ set(SOURCES
     "mqtt.c" 
     "led.c" 
     "state_handler.c"
+    "mp3.c"
 )
 
 # Specify the directory containing the header files
@@ -30,3 +31,4 @@ idf_component_register(
 target_add_binary_data(${COMPONENT_TARGET} "certs/root-CA.crt" TEXT)
 target_add_binary_data(${COMPONENT_TARGET} "certs/coop-snooper.cert.pem" TEXT)
 target_add_binary_data(${COMPONENT_TARGET} "certs/coop-snooper.private.key" TEXT)
+target_add_binary_data(${COMPONENT_TARGET} "mp3/squawk.mp3" TEXT)

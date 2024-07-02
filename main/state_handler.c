@@ -9,7 +9,6 @@
 
 static const char *TAG = "STATE_HANDLER";
 
-
 void set_led_color_based_on_state(const char *state) {
     if (strcmp(state, "CHICKEN_COOP_DOOR_OPEN_IN_DAYTIME_OK") == 0) {
         current_led_state = LED_RED;

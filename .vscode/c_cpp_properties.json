@@ -4,7 +4,7 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/Users/tennis/esp/esp-idf/components/**"
+                "/Users/tennis/esp/esp-idf/components/**",
             ],
             "defines": [],
             "macFrameworkPath": [

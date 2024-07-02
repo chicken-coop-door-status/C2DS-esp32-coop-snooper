@@ -9,8 +9,10 @@
 #include "led.h"
 #include "state_handler.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
+#include "mp3.h"  // Include the mp3 header
 
 static const char *TAG = "COOP_SNOOPER";
+
 
 static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str)
 {
@@ -47,6 +49,10 @@ void app_main(void)
 
     // Initialize WiFi
     wifi_init_sta();
+
+    i2s_std_config_t std_cfg = BSP_I2S_DUPLEX_MONO_CFG(44100);
+    ESP_ERROR_CHECK(bsp_audio_init(&std_cfg, &i2s_tx_chan, &i2s_rx_chan));
+    xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
     // Initialize MQTT
     ESP_LOGI(TAG, "Initializing MQTT");
