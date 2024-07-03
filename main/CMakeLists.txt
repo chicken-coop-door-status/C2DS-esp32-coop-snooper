@@ -10,6 +10,7 @@ set(SOURCES
     "state_handler.c"
     "mp3.c"
     "spiffs.c"
+    "ota.c"
     "certs/amazon_root_ca1.c"
     "certs/coop_snooper_cert.c"
     "certs/coop_snooper_private_key.c"
