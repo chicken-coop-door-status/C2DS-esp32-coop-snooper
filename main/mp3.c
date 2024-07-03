@@ -16,6 +16,7 @@ static const char *TAG = "MP3_PLAYER";
 #define AUDIO_SD_PIN GPIO_NUM_33
 
 bool play_audio = false;
+float volume = 1.0f; // Volume control (0.0 to 1.0)
 
 esp_err_t audio_mute_function(int setting)
 {
@@ -92,9 +93,10 @@ void audio_player_task(void *param) {
 
                     MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
 
-                    // Write PCM data to DAC
+                    // Write PCM data to DAC with volume control
                     for (int i = 0; i < mp3FrameInfo.outputSamps; i++) {
                         int16_t sample = ((short *)outputBuffer)[i];
+                        sample = (int16_t)(sample * volume);  // Apply volume control
                         uint8_t dac_value = (sample + 32768) >> 8;  // Convert 16-bit PCM to 8-bit DAC value
                         dac_output_voltage(channel, dac_value);
                         vTaskDelay(pdMS_TO_TICKS(1));  // Adjust delay as needed
@@ -122,4 +124,11 @@ void set_audio_playback(bool status)
             ESP_LOGE(TAG, "audioSemaphore is NULL");
         }
     }
+}
+
+void set_volume(float new_volume) {
+    if (new_volume < 0.0f) new_volume = 0.0f;
+    if (new_volume > 1.0f) new_volume = 1.0f;
+    volume = new_volume;
+    ESP_LOGI(TAG, "Volume set to %.2f", volume);
 }
