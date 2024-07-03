@@ -21,8 +21,8 @@ bool mqtt_message_received = false;
 #define COOP_STATUS_RESPONSE_TOPIC "coop/status/response"
 
 // Include binary data
-extern const uint8_t _binary_coop_snooper_cert_pem_start[];
-extern const uint8_t _binary_coop_snooper_private_key_start[];
+extern const uint8_t coop_snooper_cert[];
+extern const uint8_t coop_snooper_private_key[];
 
 static const char *TAG = "MQTT";
 
@@ -111,8 +111,8 @@ void mqtt_app_start(void)
         },
         .credentials = {
             .authentication = {
-                .certificate = (const char *)_binary_coop_snooper_cert_pem_start,
-                .key = (const char *)_binary_coop_snooper_private_key_start,
+                .certificate = (const char *)coop_snooper_cert,
+                .key = (const char *)coop_snooper_private_key,
             },
         },
         .network = {
