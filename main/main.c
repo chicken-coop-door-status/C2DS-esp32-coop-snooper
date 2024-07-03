@@ -47,7 +47,7 @@ void app_main(void)
     xTaskCreate(&led_task, "led_task", 4096, NULL, 5, NULL);
 
     // Set mbedtls debug threshold to 0 to disable verbose debugging
-    mbedtls_debug_set_threshold(0);
+    // mbedtls_debug_set_threshold(0);
 
     // Initialize the mbedtls SSL configuration
     mbedtls_ssl_config conf;
@@ -75,7 +75,6 @@ void app_main(void)
         return;
     }
 
-    bsp_audio_init(NULL, &i2s_tx_chan, &i2s_rx_chan);
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
     // Infinite loop to prevent exiting app_main

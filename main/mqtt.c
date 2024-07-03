@@ -101,7 +101,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 void mqtt_app_start(void)
 {
     // Set mbedtls debug threshold to a higher level for detailed logs
-    mbedtls_debug_set_threshold(0);
+    // mbedtls_debug_set_threshold(0);
 
     const esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
