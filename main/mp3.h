@@ -16,6 +16,7 @@ extern i2s_chan_handle_t i2s_tx_chan;
 extern i2s_chan_handle_t i2s_rx_chan;
 
 extern SemaphoreHandle_t audioSemaphore;
+extern SemaphoreHandle_t timer_semaphore;
 
 /* Audio */
 #define BSP_I2S_SCLK          (GPIO_NUM_14)

@@ -15,6 +15,7 @@
 
 static const char *TAG = "COOP_SNOOPER";
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
+SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
 static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str)
 {
@@ -72,6 +73,12 @@ void app_main(void)
     audioSemaphore = xSemaphoreCreateBinary();
     if (audioSemaphore == NULL) {
         ESP_LOGE(TAG, "Failed to create audio semaphore");
+        return;
+    }
+
+    timer_semaphore = xSemaphoreCreateBinary();
+    if (timer_semaphore == NULL) {
+        ESP_LOGE(TAG, "Failed to create timer semaphore");
         return;
     }
 

@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/dac.h"
+#include "driver/gptimer.h"
 #include "mp3.h"
 #include "mp3dec.h"
 #include "spiffs.h"
@@ -13,6 +14,7 @@
 static const char *TAG = "MP3_PLAYER";
 
 #define AUDIO_SD_PIN GPIO_NUM_33
+#define SAMPLE_RATE 44100  // Audio sample rate
 
 bool play_audio = false;
 float volume = 0.5f; // Volume control (0.0 to 1.0)
@@ -30,16 +32,46 @@ void configure_pins() {
     gpio_set_direction(AUDIO_SD_PIN, GPIO_MODE_OUTPUT);
 }
 
+bool IRAM_ATTR timer_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
+    BaseType_t high_task_awoken = pdFALSE;
+    xSemaphoreGiveFromISR(timer_semaphore, &high_task_awoken);
+    return high_task_awoken == pdTRUE;
+}
+
 void audio_player_task(void *param) {
     ESP_LOGI(TAG, "Initializing audio player...");
 
     // Initialize the DAC
-    dac_channel_t channel = DAC_CHANNEL_1;  // DAC1 is GPIO 25
-    dac_output_enable(channel);
+    dac_output_enable(DAC_CHAN_0);  // DAC1 is GPIO 25
 
     // Configure pins
     configure_pins();
     mute_audio(true);  // Mute 
+
+    // Initialize GPTimer
+    gptimer_handle_t gptimer = NULL;
+    gptimer_config_t timer_config = {
+        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
+        .direction = GPTIMER_COUNT_UP,
+        .resolution_hz = SAMPLE_RATE * 2  // Resolution in Hz
+    };
+    ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &gptimer));
+
+    gptimer_event_callbacks_t cbs = {
+        .on_alarm = timer_callback
+    };
+    ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
+
+    gptimer_alarm_config_t alarm_config = {
+        .alarm_count = 1,
+        .reload_count = 0,
+        .flags = {
+            .auto_reload_on_alarm = true
+        }
+    };
+    ESP_ERROR_CHECK(gptimer_set_alarm_action(gptimer, &alarm_config));
+
+    ESP_ERROR_CHECK(gptimer_enable(gptimer));
 
     HMP3Decoder hMP3Decoder;
     MP3FrameInfo mp3FrameInfo;
@@ -69,6 +101,8 @@ void audio_player_task(void *param) {
                 readPtr = mp3_data;
                 bytesLeft = mp3_size;
 
+                ESP_ERROR_CHECK(gptimer_start(gptimer));
+
                 while (bytesLeft > 0) {
                     offset = MP3FindSyncWord(readPtr, bytesLeft);
                     if (offset < 0) {
@@ -87,14 +121,23 @@ void audio_player_task(void *param) {
                     MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
 
                     // Write PCM data to DAC with volume control
-                    for (int i = 0; i < mp3FrameInfo.outputSamps; i++) {
-                        int16_t sample = ((short *)outputBuffer)[i];
-                        sample = (int16_t)(sample * volume);  // Apply volume control
-                        uint8_t dac_value = (sample + 32768) >> 8;  // Convert 16-bit PCM to 8-bit DAC value
-                        dac_output_voltage(channel, dac_value);
-                        vTaskDelay(pdMS_TO_TICKS(1));  // Adjust delay as needed
+                    for (int i = 0; i < mp3FrameInfo.outputSamps; i += 2) {
+                        int16_t left_sample = ((short *)outputBuffer)[i];
+                        int16_t right_sample = ((short *)outputBuffer)[i + 1];
+
+                        // Downmix to mono by averaging left and right samples
+                        int16_t mono_sample = (left_sample + right_sample) / 2;
+
+                        mono_sample = (int16_t)(mono_sample * volume);  // Apply volume control
+
+                        uint8_t dac_value = (mono_sample + 32768) >> 8;  // Convert 16-bit PCM to 8-bit DAC value
+
+                        if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
+                            dac_output_voltage(DAC_CHAN_0, dac_value);
+                        }
                     }
                 }
+                ESP_ERROR_CHECK(gptimer_stop(gptimer));
                 mute_audio(true);  // Mute (set SD pin low)
             }
         } else {
