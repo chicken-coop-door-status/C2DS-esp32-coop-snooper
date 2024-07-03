@@ -16,12 +16,12 @@ static const char *TAG = "MP3_PLAYER";
 #define AUDIO_SD_PIN GPIO_NUM_33
 
 bool play_audio = false;
-float volume = 1.0f; // Volume control (0.0 to 1.0)
+float volume = 0.5f; // Volume control (0.0 to 1.0)
 
-esp_err_t audio_mute_function(int setting)
+esp_err_t mute_audio(bool mute)
 {
-    ESP_LOGI(TAG, "mute setting %d", setting);
-    gpio_set_level(AUDIO_SD_PIN, setting ? 0 : 1);
+    ESP_LOGI(TAG, "mute setting %d", mute);
+    gpio_set_level(AUDIO_SD_PIN, mute ? 0 : 1);
     return ESP_OK;
 }
 
@@ -40,7 +40,7 @@ void audio_player_task(void *param) {
 
     // Configure pins
     configure_pins();
-    audio_mute_function(0);  // Unmute (set SD pin high)
+    mute_audio(true);  // Mute 
 
     HMP3Decoder hMP3Decoder;
     MP3FrameInfo mp3FrameInfo;
@@ -71,6 +71,7 @@ void audio_player_task(void *param) {
         ESP_LOGI(TAG, "Waiting for semaphore");
         if (xSemaphoreTake(audioSemaphore, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Semaphore taken. Checking audio playback status");
+            mute_audio(false);  // Unmute (set SD pin high)
             if (play_audio) {
                 ESP_LOGI(TAG, "Starting MP3 playback. MP3 size: %d", mp3_size);
                 readPtr = mp3_data;
@@ -102,6 +103,7 @@ void audio_player_task(void *param) {
                         vTaskDelay(pdMS_TO_TICKS(1));  // Adjust delay as needed
                     }
                 }
+                mute_audio(true);  // Mute (set SD pin low)
             }
         } else {
             ESP_LOGE(TAG, "Failed to take semaphore");
