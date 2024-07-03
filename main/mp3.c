@@ -8,10 +8,9 @@
 #include "mp3.h"
 #include "mp3dec.h"
 #include "spiffs.h"
+#include "squawk_mp3.h"  // Include the generated header file
 
 static const char *TAG = "MP3_PLAYER";
-
-#define MP3_SQUAWK_FILE_PATH "/spiffs/squawk.mp3"
 
 #define AUDIO_SD_PIN GPIO_NUM_33
 
@@ -53,15 +52,8 @@ void audio_player_task(void *param) {
         ESP_LOGI(TAG, "MP3 decoder initialized successfully");
     }
 
-    size_t mp3_size;
-    uint8_t *mp3_data = read_mp3_file(MP3_SQUAWK_FILE_PATH, &mp3_size);
-    if (mp3_data == NULL) {
-        ESP_LOGE(TAG, "Failed to read MP3 file");
-        MP3FreeDecoder(hMP3Decoder);
-        vTaskDelete(NULL);
-        return;
-    }
-
+    uint8_t *mp3_data = squawk_mp3;
+    size_t mp3_size = squawk_mp3_len;
     uint8_t *readPtr = mp3_data;
     uint8_t outputBuffer[1152 * 2 * sizeof(short)];
     int bytesLeft = mp3_size;
@@ -110,7 +102,6 @@ void audio_player_task(void *param) {
         }
     }
 
-    free(mp3_data);
     MP3FreeDecoder(hMP3Decoder);
     vTaskDelete(NULL);
 }
