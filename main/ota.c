@@ -1,4 +1,5 @@
 #include "ota.h"
+#include "sdkconfig.h"
 
 extern const uint8_t amazon_root_ca1[];
 
@@ -8,7 +9,7 @@ void ota_task(void *pvParameter)
 {
     esp_err_t ota_finish_err = ESP_OK;
     esp_http_client_config_t config = {
-        .url = OTA_URL, 
+        .url = CONFIG_OTA_URL, 
         .cert_pem = (char *)amazon_root_ca1
     };
 

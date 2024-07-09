@@ -10,18 +10,32 @@
 
 static const char *TAG = "STATE_HANDLER";
 
+// Function to map string to enum
+led_state_t lookup_led_state(const char* str) {
+    if (strcmp(str, "LED_OFF") == 0) return LED_OFF;
+    if (strcmp(str, "LED_RED") == 0) return LED_RED;
+    if (strcmp(str, "LED_GREEN") == 0) return LED_GREEN;
+    if (strcmp(str, "LED_BLUE") == 0) return LED_BLUE;
+    if (strcmp(str, "LED_FLASHING_RED") == 0) return LED_FLASHING_RED;
+    if (strcmp(str, "LED_FLASHING_GREEN") == 0) return LED_FLASHING_GREEN;
+    if (strcmp(str, "LED_FLASHING_BLUE") == 0) return LED_FLASHING_BLUE;
+    if (strcmp(str, "LED_FLASHING_WHITE") == 0) return LED_FLASHING_WHITE;
+    if (strcmp(str, "LED_PULSATING_RED") == 0) return LED_PULSATING_RED;
+    if (strcmp(str, "LED_PULSATING_GREEN") == 0) return LED_PULSATING_GREEN;
+    if (strcmp(str, "LED_PULSATING_BLUE") == 0) return LED_PULSATING_BLUE;
+    if (strcmp(str, "LED_PULSATING_WHITE") == 0) return LED_PULSATING_WHITE;
+    
+    // Default case if no match found
+    return LED_OFF;
+}
+
 void set_led_color_based_on_state(const char *state) {
-    if (strcmp(state, "CHICKEN_COOP_DOOR_OPEN_IN_DAYTIME_OK") == 0) {
-        current_led_state = LED_RED;
-    } else if (strcmp(state, "CHICKEN_COOP_DOOR_CLOSED_AT_NIGHT_OK") == 0) {
-        current_led_state = LED_GREEN;
-    } else if (strcmp(state, "CHICKEN_COOP_DOOR_CLOSED_IN_DAYTIME_ERROR") == 0 ||
-               strcmp(state, "CHICKEN_COOP_DOOR_OPEN_AT_NIGHT_ERROR") == 0 ||
-               strcmp(state, "CHICKEN_COOP_DOOR_SENSOR_FAILURE_ERROR") == 0) {
-        current_led_state = LED_FLASHING_RED;
-        ESP_LOGI(TAG, "Playing audio file for error state");
-        set_audio_playback(true);
-    } else {
-        ESP_LOGI(TAG, "Received unknown state: %s", state);
+
+    current_led_state = lookup_led_state(state);
+    
+    ESP_LOGI(TAG, "Setting LED color based on state: %s", state);
+
+    if (strcmp(state,"LED_GREEN") != 0) {
+        set_audio_playback(true); 
     }
 }

@@ -3,7 +3,6 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include "main.h"
 #include "wifi.h"
 #include "mqtt.h"
 #include "led.h"
@@ -26,16 +25,6 @@ static void tls_debug_callback(void *ctx, int level, const char *file, int line,
 
 void app_main(void)
 {
-    // // Initialize the Task Watchdog Timer if not already initialized
-    // if (esp_task_wdt_status(NULL) == ESP_ERR_NOT_FOUND) {
-    //     esp_task_wdt_config_t wdt_config = {
-    //         .timeout_ms = 60000, // Set timeout to 60 seconds (60000 milliseconds)
-    //         .idle_core_mask = 0, // Apply the WDT to all cores
-    //         .trigger_panic = true, // Trigger a panic when the WDT times out
-    //     };
-    //     ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_config));
-    // }
-    // ESP_ERROR_CHECK(esp_task_wdt_add(NULL)); // Add the current task to the watchdog
     init_spiffs();
 
     ESP_LOGI(TAG, "Initializing LED PWM");

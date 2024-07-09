@@ -11,4 +11,8 @@
         }
     },
     "terminal.integrated.defaultProfile.osx": "MyCustomProfile",
+    "files.associations": {
+        "esp_event.h": "c",
+        "ota.h": "c"
+    },
 }

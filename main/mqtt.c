@@ -4,11 +4,11 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 #include "cJSON.h"
-#include "main.h"
 #include "led.h"
 #include "state_handler.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
 #include "ota.h"
+#include "sdkconfig.h"
 
 TaskHandle_t ota_task_handle = NULL;  // Task handle for OTA updating
 
@@ -18,11 +18,6 @@ bool mqtt_message_received = false;
 
 // Define NETWORK_TIMEOUT_MS
 #define NETWORK_TIMEOUT_MS 10000  // Example value, set as appropriate for your application
-
-#define COOP_STATUS_TOPIC "coop/status"
-#define COOP_STATUS_REQUEST_TOPIC "coop/status/request"
-#define COOP_STATUS_RESPONSE_TOPIC "coop/status/response"
-#define COOP_OTA_UPDATE_SNOOPER_TOPIC "coop/update/snooper"
 
 // Include binary data
 extern const uint8_t coop_snooper_cert[];
@@ -40,13 +35,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        msg_id = esp_mqtt_client_subscribe(client, COOP_STATUS_TOPIC, 0);
-        ESP_LOGI(TAG, "Subscribed to COOP_STATUS_RESPONSE_TOPIC, msg_id=%d", msg_id);
-        msg_id = esp_mqtt_client_subscribe(client, COOP_OTA_UPDATE_SNOOPER_TOPIC, 0);
-        ESP_LOGI(TAG, "Subscribed to COOP_OTA_UPDATE_SNOOPER_TOPIC, msg_id=%d", msg_id);
+        msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, 0);
+        msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
+        msg_id = esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
         mqtt_setup_complete = true; // MQTT setup is complete
-        msg_id = esp_mqtt_client_publish(client, COOP_STATUS_REQUEST_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
-        ESP_LOGI(TAG, "Pubished to COOP_STATUS_REQUEST_TOPIC, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -69,14 +61,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG,"TOPIC=%.*s\r", event->topic_len, event->topic);
         ESP_LOGI(TAG,"DATA=%.*s\r", event->data_len, event->data);
 
-        if (strncmp(event->topic, COOP_STATUS_TOPIC, event->topic_len) == 0) {
-            ESP_LOGW(TAG, "Received topic %s", COOP_STATUS_TOPIC);
+        if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
+            ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
             // Handle the status response
             cJSON *json = cJSON_Parse(event->data);
             if (json == NULL) {
                 ESP_LOGE(TAG, "Failed to parse JSON");
             } else {
-                cJSON *state = cJSON_GetObjectItem(json, "state");
+                cJSON *state = cJSON_GetObjectItem(json, "LED");
                 if (cJSON_IsString(state)) {
                     ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
                     set_led_color_based_on_state(state->valuestring);
@@ -85,8 +77,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 }
                 cJSON_Delete(json);
             }
-        } else if (strncmp(event->topic, COOP_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
-            ESP_LOGI(TAG, "Received topic %s", COOP_OTA_UPDATE_SNOOPER_TOPIC);
+        } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
+            ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
             xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, &ota_task_handle);
         } else {
             ESP_LOGW(TAG, "Received unknown topic");
@@ -119,7 +111,7 @@ void mqtt_app_start(void)
     const esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
-                .uri = AWS_IOT_ENDPOINT,
+                .uri = CONFIG_AWS_IOT_ENDPOINT,
             },
         },
         .credentials = {

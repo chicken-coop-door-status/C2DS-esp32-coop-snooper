@@ -15,9 +15,5 @@
 #include "esp_http_client.h"
 #include "mqtt_client.h"
 
-// Define the URL of the OTA firmware binary
-#define OTA_URL "https://charlies-farm-ota.s3.us-east-2.amazonaws.com/coop-snooper/coop-snooper.bin"
-// Function to check and perform OTA update
-
 void ota_task(void *pvParameter);
 #endif // OTA_UPDATE_H
