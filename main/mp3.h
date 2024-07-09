@@ -66,4 +66,6 @@ void audio_player_task(void *param);
 // Function to set the audio playback status
 void set_audio_playback(bool status);
 
+void set_gain(bool high_gain); 
+
 #endif // SNOOPER_MP3_H

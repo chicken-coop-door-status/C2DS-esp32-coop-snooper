@@ -18,6 +18,7 @@ static const char *TAG = "MP3_PLAYER";
 #define I2S_WS_PIN      GPIO_NUM_25  // LRC
 #define I2S_DO_PIN      GPIO_NUM_22  // DIN
 #define I2S_SD_PIN      GPIO_NUM_21  // SD
+#define GAIN_PIN        GPIO_NUM_16  // GAIN
 #define SAMPLE_RATE     44100  // Audio sample rate
 
 bool play_audio = false;
@@ -54,6 +55,16 @@ void configure_i2s() {
     gpio_reset_pin(I2S_SD_PIN);
     gpio_set_direction(I2S_SD_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(I2S_SD_PIN, 1);  // Enable the amplifier by default
+
+    // Configure GAIN pin for controlling the gain
+    gpio_reset_pin(GAIN_PIN);
+    gpio_set_direction(GAIN_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(GAIN_PIN, 0);  // Set default gain to low (3dB)
+}
+
+void set_gain(bool high_gain) {
+    gpio_set_level(GAIN_PIN, high_gain ? 1 : 0);
+    ESP_LOGI(TAG, "Gain set to %s", high_gain ? "9dB" : "3dB");
 }
 
 void audio_player_task(void *param) {
@@ -85,33 +96,35 @@ void audio_player_task(void *param) {
         if (xSemaphoreTake(audioSemaphore, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Semaphore taken. Checking audio playback status");
             if (play_audio) {
-                ESP_LOGI(TAG, "Starting MP3 playback. MP3 size: %d", mp3_size);
-                readPtr = mp3_data;
-                bytesLeft = mp3_size;
+                for (int play_count = 0; play_count < 3; play_count++) {
+                    ESP_LOGI(TAG, "Starting MP3 playback #%d. MP3 size: %d", play_count + 1, mp3_size);
+                    readPtr = mp3_data;
+                    bytesLeft = mp3_size;
 
-                while (bytesLeft > 0) {
-                    offset = MP3FindSyncWord(readPtr, bytesLeft);
-                    if (offset < 0) {
-                        ESP_LOGE(TAG, "MP3 sync word not found");
-                        break;
-                    }
-                    readPtr += offset;
-                    bytesLeft -= offset;
+                    while (bytesLeft > 0) {
+                        offset = MP3FindSyncWord(readPtr, bytesLeft);
+                        if (offset < 0) {
+                            ESP_LOGE(TAG, "MP3 sync word not found");
+                            break;
+                        }
+                        readPtr += offset;
+                        bytesLeft -= offset;
 
-                    int err = MP3Decode(hMP3Decoder, &readPtr, &bytesLeft, (short *)outputBuffer, 0);
-                    if (err != ERR_MP3_NONE) {
-                        ESP_LOGE(TAG, "MP3 decode error: %d", err);
-                        break;
-                    }
+                        int err = MP3Decode(hMP3Decoder, &readPtr, &bytesLeft, (short *)outputBuffer, 0);
+                        if (err != ERR_MP3_NONE) {
+                            ESP_LOGE(TAG, "MP3 decode error: %d", err);
+                            break;
+                        }
 
-                    MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
+                        MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
 
-                    // Write PCM data to I2S with volume control
-                    size_t bytes_written = 0;
-                    for (int i = 0; i < mp3FrameInfo.outputSamps; i++) {
-                        int16_t sample = ((short *)outputBuffer)[i];
-                        sample = (int16_t)(sample * volume);  // Apply volume control
-                        i2s_write(I2S_NUM, &sample, sizeof(sample), &bytes_written, portMAX_DELAY);
+                        // Write PCM data to I2S with volume control
+                        size_t bytes_written = 0;
+                        for (int i = 0; i < mp3FrameInfo.outputSamps; i++) {
+                            int16_t sample = ((short *)outputBuffer)[i];
+                            sample = (int16_t)(sample * volume);  // Apply volume control
+                            i2s_write(I2S_NUM, &sample, sizeof(sample), &bytes_written, portMAX_DELAY);
+                        }
                     }
                 }
             }

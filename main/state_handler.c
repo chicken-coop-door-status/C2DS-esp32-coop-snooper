@@ -36,6 +36,7 @@ void set_led_color_based_on_state(const char *state) {
     ESP_LOGI(TAG, "Setting LED color based on state: %s", state);
 
     if (strcmp(state,"LED_GREEN") != 0) {
+        set_gain(true);
         set_audio_playback(true); 
     }
 }
