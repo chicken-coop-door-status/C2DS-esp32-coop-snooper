@@ -3,9 +3,8 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
+#include "driver/i2s.h"
 #include "driver/gpio.h"
-#include "driver/dac.h"
-#include "driver/gptimer.h"
 #include "mp3.h"
 #include "mp3dec.h"
 #include "spiffs.h"
@@ -13,65 +12,54 @@
 
 static const char *TAG = "MP3_PLAYER";
 
-#define AUDIO_SD_PIN GPIO_NUM_33
-#define SAMPLE_RATE 44100  // Audio sample rate
+#define I2S_NUM         I2S_NUM_0
+#define I2S_BCK_PIN     GPIO_NUM_26  // BCLK
+#define I2S_WS_PIN      GPIO_NUM_25  // LRC
+#define I2S_DO_PIN      GPIO_NUM_22  // DIN
+#define I2S_SD_PIN      GPIO_NUM_21  // SD
+#define SAMPLE_RATE     44100  // Audio sample rate
 
 bool play_audio = false;
 float volume = 0.5f; // Volume control (0.0 to 1.0)
+i2s_chan_handle_t tx_handle;  // Moved tx_handle to global scope
 
-esp_err_t mute_audio(bool mute)
-{
-    ESP_LOGI(TAG, "mute setting %d", mute);
-    gpio_set_level(AUDIO_SD_PIN, mute ? 0 : 1);
-    return ESP_OK;
-}
+void configure_i2s() {
+    i2s_config_t i2s_config = {
+        .mode = I2S_MODE_MASTER | I2S_MODE_TX,
+        .sample_rate = SAMPLE_RATE,
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+        .communication_format = I2S_COMM_FORMAT_I2S,
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+        .dma_buf_count = 8,
+        .dma_buf_len = 64,
+        .use_apll = false,
+        .tx_desc_auto_clear = true,
+        .fixed_mclk = 0
+    };
 
-void configure_pins() {
-    // Configure SD pin for PAM8302A
-    gpio_reset_pin(AUDIO_SD_PIN);
-    gpio_set_direction(AUDIO_SD_PIN, GPIO_MODE_OUTPUT);
-}
+    i2s_pin_config_t pin_config = {
+        .bck_io_num = I2S_BCK_PIN,
+        .ws_io_num = I2S_WS_PIN,
+        .data_out_num = I2S_DO_PIN,
+        .data_in_num = I2S_PIN_NO_CHANGE
+    };
 
-bool IRAM_ATTR timer_callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
-    BaseType_t high_task_awoken = pdFALSE;
-    xSemaphoreGiveFromISR(timer_semaphore, &high_task_awoken);
-    return high_task_awoken == pdTRUE;
+    // Configure and install I2S driver
+    ESP_ERROR_CHECK(i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL));
+    ESP_ERROR_CHECK(i2s_set_pin(I2S_NUM, &pin_config));
+
+    // Configure SD pin for controlling the amplifier
+    gpio_reset_pin(I2S_SD_PIN);
+    gpio_set_direction(I2S_SD_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(I2S_SD_PIN, 1);  // Enable the amplifier by default
 }
 
 void audio_player_task(void *param) {
     ESP_LOGI(TAG, "Initializing audio player...");
 
-    // Initialize the DAC
-    dac_output_enable(DAC_CHAN_0);  // DAC1 is GPIO 25
-
-    // Configure pins
-    configure_pins();
-    mute_audio(true);  // Mute 
-
-    // Initialize GPTimer
-    gptimer_handle_t gptimer = NULL;
-    gptimer_config_t timer_config = {
-        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
-        .direction = GPTIMER_COUNT_UP,
-        .resolution_hz = SAMPLE_RATE * 2  // Resolution in Hz
-    };
-    ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &gptimer));
-
-    gptimer_event_callbacks_t cbs = {
-        .on_alarm = timer_callback
-    };
-    ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
-
-    gptimer_alarm_config_t alarm_config = {
-        .alarm_count = 1,
-        .reload_count = 0,
-        .flags = {
-            .auto_reload_on_alarm = true
-        }
-    };
-    ESP_ERROR_CHECK(gptimer_set_alarm_action(gptimer, &alarm_config));
-
-    ESP_ERROR_CHECK(gptimer_enable(gptimer));
+    // Configure I2S
+    configure_i2s();
 
     HMP3Decoder hMP3Decoder;
     MP3FrameInfo mp3FrameInfo;
@@ -95,13 +83,10 @@ void audio_player_task(void *param) {
         ESP_LOGI(TAG, "Waiting for semaphore");
         if (xSemaphoreTake(audioSemaphore, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Semaphore taken. Checking audio playback status");
-            mute_audio(false);  // Unmute (set SD pin high)
             if (play_audio) {
                 ESP_LOGI(TAG, "Starting MP3 playback. MP3 size: %d", mp3_size);
                 readPtr = mp3_data;
                 bytesLeft = mp3_size;
-
-                ESP_ERROR_CHECK(gptimer_start(gptimer));
 
                 while (bytesLeft > 0) {
                     offset = MP3FindSyncWord(readPtr, bytesLeft);
@@ -120,25 +105,14 @@ void audio_player_task(void *param) {
 
                     MP3GetLastFrameInfo(hMP3Decoder, &mp3FrameInfo);
 
-                    // Write PCM data to DAC with volume control
-                    for (int i = 0; i < mp3FrameInfo.outputSamps; i += 2) {
-                        int16_t left_sample = ((short *)outputBuffer)[i];
-                        int16_t right_sample = ((short *)outputBuffer)[i + 1];
-
-                        // Downmix to mono by averaging left and right samples
-                        int16_t mono_sample = (left_sample + right_sample) / 2;
-
-                        mono_sample = (int16_t)(mono_sample * volume);  // Apply volume control
-
-                        uint8_t dac_value = (mono_sample + 32768) >> 8;  // Convert 16-bit PCM to 8-bit DAC value
-
-                        if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
-                            dac_output_voltage(DAC_CHAN_0, dac_value);
-                        }
+                    // Write PCM data to I2S with volume control
+                    size_t bytes_written = 0;
+                    for (int i = 0; i < mp3FrameInfo.outputSamps; i++) {
+                        int16_t sample = ((short *)outputBuffer)[i];
+                        sample = (int16_t)(sample * volume);  // Apply volume control
+                        i2s_write(I2S_NUM, &sample, sizeof(sample), &bytes_written, portMAX_DELAY);
                     }
                 }
-                ESP_ERROR_CHECK(gptimer_stop(gptimer));
-                mute_audio(true);  // Mute (set SD pin low)
             }
         } else {
             ESP_LOGE(TAG, "Failed to take semaphore");
@@ -149,8 +123,7 @@ void audio_player_task(void *param) {
     vTaskDelete(NULL);
 }
 
-void set_audio_playback(bool status)
-{
+void set_audio_playback(bool status) {
     play_audio = status;
     if (play_audio) {
         if (audioSemaphore != NULL) {
