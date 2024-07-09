@@ -9,6 +9,7 @@
 #include "mp3dec.h"
 #include "spiffs.h"
 #include "squawk_mp3.h"  // Include the generated header file
+#include "sdkconfig.h"
 
 static const char *TAG = "MP3_PLAYER";
 
@@ -20,7 +21,7 @@ static const char *TAG = "MP3_PLAYER";
 #define SAMPLE_RATE     44100  // Audio sample rate
 
 bool play_audio = false;
-float volume = 0.5f; // Volume control (0.0 to 1.0)
+float volume = 1.0f; // Volume control (0.0 to 1.0)
 i2s_chan_handle_t tx_handle;  // Moved tx_handle to global scope
 
 void configure_i2s() {
