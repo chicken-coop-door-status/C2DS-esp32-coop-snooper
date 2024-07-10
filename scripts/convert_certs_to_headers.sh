@@ -16,8 +16,8 @@ convert_to_header() {
   xxd -i "$filename" > "$headername"
 
   # Rename the variable inside the header to a more meaningful name
-  sed -i "s/unsigned char \([^ ]*\)/unsigned char ${varname}_pem/" "$headername"
-  sed -i "s/unsigned int \([^ ]*\)_len/unsigned int ${varname}_pem_len/" "$headername"
+  # sed -i "s/unsigned char \([^ ]*\)/unsigned char ${varname}_pem/" "$headername"
+  # sed -i "s/unsigned int \([^ ]*\)_len/unsigned int ${varname}_pem_len/" "$headername"
 
   echo "Converted $filename to $headername"
 }
