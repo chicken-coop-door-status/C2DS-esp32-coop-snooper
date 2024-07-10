@@ -14,12 +14,12 @@
 static const char *TAG = "MP3_PLAYER";
 
 #define I2S_NUM         I2S_NUM_0
-#define I2S_BCK_PIN     GPIO_NUM_26  // BCLK
-#define I2S_WS_PIN      GPIO_NUM_25  // LRC
-#define I2S_DO_PIN      GPIO_NUM_22  // DIN
-#define I2S_SD_PIN      GPIO_NUM_21  // SD
-#define GAIN_PIN        GPIO_NUM_16  // GAIN
-#define SAMPLE_RATE     44100  // Audio sample rate
+#define I2S_BCK_PIN     GPIO_NUM_6   // BCLK
+#define I2S_WS_PIN      GPIO_NUM_5   // LRC
+#define I2S_DO_PIN      GPIO_NUM_7   // DIN
+#define I2S_SD_PIN      GPIO_NUM_10  // SD
+#define GAIN_PIN        GPIO_NUM_9   // GAIN
+#define SAMPLE_RATE     44100        // Audio sample rate
 
 bool play_audio = false;
 float volume = 1.0f; // Volume control (0.0 to 1.0)
@@ -65,6 +65,11 @@ void configure_i2s() {
 void set_gain(bool high_gain) {
     gpio_set_level(GAIN_PIN, high_gain ? 1 : 0);
     ESP_LOGI(TAG, "Gain set to %s", high_gain ? "9dB" : "3dB");
+}
+
+void enable_amplifier(bool enable) {
+    gpio_set_level(I2S_SD_PIN, enable ? 1 : 0);
+    ESP_LOGI(TAG, "Amplifier %s", enable ? "enabled" : "disabled");
 }
 
 void audio_player_task(void *param) {

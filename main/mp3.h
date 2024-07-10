@@ -68,4 +68,8 @@ void set_audio_playback(bool status);
 
 void set_gain(bool high_gain); 
 
+void enable_amplifier(bool enable); 
+
+void set_volume(float new_volume); 
+
 #endif // SNOOPER_MP3_H
