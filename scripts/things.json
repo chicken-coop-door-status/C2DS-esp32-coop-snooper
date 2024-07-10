@@ -1,0 +1,27 @@
+{
+    "things": [
+      {
+        "thingName": "coop-snooper-farmhouse",
+        "thingTypeName": "coop-snooper",
+        "attributePayload": {
+          "attributes": {
+            "Location": "farmhouse",
+            "SensorType": "opto-coupler"
+          },
+          "merge": false
+        }
+      },
+      {
+        "thingName": "coop-snooper-tennis-home",
+        "thingTypeName": "coop-snooper",
+        "attributePayload": {
+          "attributes": {
+            "Location": "tennis-home",
+            "SensorType": "opto-coupler"
+          },
+          "merge": false
+        }
+      }
+    ]
+  }
+  
