@@ -14,6 +14,8 @@
     "files.associations": {
         "esp_event.h": "c",
         "ota.h": "c",
-        "semphr.h": "c"
+        "semphr.h": "c",
+        "cstdint": "c",
+        "mqtt.h": "c"
     },
 }

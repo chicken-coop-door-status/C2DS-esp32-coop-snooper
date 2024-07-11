@@ -1,8 +1,6 @@
 #include "ota.h"
 #include "sdkconfig.h"
 
-extern const uint8_t amazon_root_ca1[];
-
 static const char *TAG = "OTA";
 
 void ota_task(void *pvParameter)
@@ -10,7 +8,7 @@ void ota_task(void *pvParameter)
     esp_err_t ota_finish_err = ESP_OK;
     esp_http_client_config_t config = {
         .url = CONFIG_OTA_URL, 
-        .cert_pem = (char *)amazon_root_ca1
+        .cert_pem = (char *)AmazonRootCA1_pem
     };
 
     esp_https_ota_config_t ota_config = {

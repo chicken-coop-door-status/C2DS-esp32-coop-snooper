@@ -1,14 +1,6 @@
 #include "mqtt.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "mqtt_client.h"
-#include "cJSON.h"
-#include "led.h"
-#include "state_handler.h"
-#include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
-#include "ota.h"
-#include "sdkconfig.h"
+
+static const char *TAG = "MQTT";
 
 TaskHandle_t ota_task_handle = NULL;  // Task handle for OTA updating
 
@@ -19,11 +11,13 @@ bool mqtt_message_received = false;
 // Define NETWORK_TIMEOUT_MS
 #define NETWORK_TIMEOUT_MS 10000  // Example value, set as appropriate for your application
 
-// Include binary data
-extern const uint8_t coop_snooper_cert[];
-extern const uint8_t coop_snooper_private_key[];
-
-static const char *TAG = "MQTT";
+#ifdef TENNIS_HOUSE
+const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
+const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
+#elif defined(FARM_HOUSE)
+const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
+const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
+#endif
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -116,8 +110,8 @@ void mqtt_app_start(void)
         },
         .credentials = {
             .authentication = {
-                .certificate = (const char *)coop_snooper_cert,
-                .key = (const char *)coop_snooper_private_key,
+                .certificate = (const char *)cert,
+                .key = (const char *)key,
             },
         },
         .network = {

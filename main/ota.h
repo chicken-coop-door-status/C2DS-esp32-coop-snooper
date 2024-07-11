@@ -15,5 +15,7 @@
 #include "esp_http_client.h"
 #include "mqtt_client.h"
 
+extern const uint8_t AmazonRootCA1_pem[]; 
+
 void ota_task(void *pvParameter);
 #endif // OTA_UPDATE_H
