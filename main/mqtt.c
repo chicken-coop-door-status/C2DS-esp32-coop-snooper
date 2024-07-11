@@ -12,9 +12,11 @@ bool mqtt_message_received = false;
 #define NETWORK_TIMEOUT_MS 10000  // Example value, set as appropriate for your application
 
 #ifdef TENNIS_HOUSE
+static const char *LOCATION = "Tennis House";
 const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
 const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
 #elif defined(FARM_HOUSE)
+static const char *LOCATION = "Farm House";
 const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
 const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
 #endif
@@ -29,6 +31,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+        ESP_LOGW(TAG, "Location: %s", LOCATION);
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, 0);
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
         msg_id = esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
