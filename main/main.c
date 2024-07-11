@@ -31,7 +31,7 @@ void app_main(void)
     init_led_pwm();
 
     ESP_LOGI(TAG, "Setting LED state to PULSATING_WHITE");
-    current_led_state = LED_PULSATING_WHITE;
+    current_led_state = LED_FLASHING_WHITE;
 
     ESP_LOGI(TAG, "Creating LED task");
     xTaskCreate(&led_task, "led_task", 4096, NULL, 5, NULL);
