@@ -1,3 +1,4 @@
+main/Kconfig.projbuild filter=git-crypt diff=git-crypt
 main/certs/* filter=git-crypt diff=git-crypt
 main/certs/original/* filter=git-crypt diff=git-crypt
 main/certs/iot-policy/* filter=git-crypt diff=git-crypt
