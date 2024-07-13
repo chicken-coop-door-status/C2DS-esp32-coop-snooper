@@ -9,7 +9,7 @@
 #include <string.h>
 #include "sdkconfig.h"
 #include "cJSON.h"
-
+#include "wifi.h" // Include wifi header to access semaphore
 
 #ifdef TENNIS_HOUSE
 static const char *MQTT_HOST = "TENNIS_HOUSE";
@@ -56,14 +56,14 @@ void logging_task(void *pvParameters) {
 
     mqtt_client = (esp_mqtt_client_handle_t)pvParameters;
     while (true) {
-        if (xQueueReceive(log_queue, &log_message, portMAX_DELAY) == pdPASS) {
-            if (mqtt_client != NULL) {
+        if (xQueueReceive(log_queue, &log_message, portMAX_DELAY) == pdPASS 
+            && mqtt_client != NULL 
+            && xSemaphoreTake(wifi_connected_semaphore, 0) == pdTRUE) { 
                 cJSON *root = cJSON_CreateObject();
                 cJSON_AddStringToObject(root, MQTT_HOST, log_message.message);
                 const char *json_string = cJSON_Print(root);
                 esp_mqtt_client_publish(mqtt_client, CONFIG_MQTT_PUBLISH_LOGGING_TOPIC, json_string, 0, 1, 0);
                 cJSON_Delete(root);
-            }
         }
     }
 }

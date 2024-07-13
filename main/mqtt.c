@@ -1,5 +1,6 @@
 #include "mqtt.h"
 #include "logging.h"
+#include "wifi.h" // Include wifi header to access semaphore
 static const char *TAG = "MQTT";
 
 TaskHandle_t ota_task_handle = NULL;  // Task handle for OTA updating
@@ -27,6 +28,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
+    esp_err_t err;
 
     switch (event->event_id)
     {
@@ -51,6 +53,30 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         if (logging_task_handle != NULL) {
             vTaskDelete(logging_task_handle);
             logging_task_handle = NULL;
+        }
+        
+        // Reconnect logic
+        int retry_count = 0;
+        const int max_retries = 5;
+        const int retry_delay_ms = 5000;
+
+        // Check if the network is connected before attempting reconnection
+        if (xSemaphoreTake(wifi_connected_semaphore, 0) == pdTRUE) {
+            do {
+                ESP_LOGI(TAG, "Attempting to reconnect, retry %d/%d", retry_count + 1, max_retries);
+                err = esp_mqtt_client_reconnect(client);
+                if (err != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to reconnect MQTT client, retrying in %d seconds...", retry_delay_ms / 1000);
+                    vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
+                    retry_count++;
+                }
+            } while (err != ESP_OK && retry_count < max_retries);
+
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to reconnect MQTT client after %d retries", retry_count);
+            }
+        } else {
+            ESP_LOGE(TAG, "Network not connected, skipping MQTT reconnection");
         }
         break;
     case MQTT_EVENT_SUBSCRIBED:
@@ -149,16 +175,21 @@ void mqtt_app_start(void)
     const int max_retries = 5;
     const int retry_delay_ms = 5000;
 
-    do {
-        err = esp_mqtt_client_start(client);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start MQTT client, retrying in %d seconds... (%d/%d)", retry_delay_ms / 1000, retry_count + 1, max_retries);
-            vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
-            retry_count++;
-        }
-    } while (err != ESP_OK && retry_count < max_retries);
+    // Check if the network is connected before starting the MQTT client
+    if (xSemaphoreTake(wifi_connected_semaphore, portMAX_DELAY) == pdTRUE) {
+        do {
+            err = esp_mqtt_client_start(client);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to start MQTT client, retrying in %d seconds... (%d/%d)", retry_delay_ms / 1000, retry_count + 1, max_retries);
+                vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
+                retry_count++;
+            }
+        } while (err != ESP_OK && retry_count < max_retries);
 
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start MQTT client after %d retries", retry_count);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to start MQTT client after %d retries", retry_count);
+        }
+    } else {
+        ESP_LOGE(TAG, "Network not connected, skipping MQTT client start");
     }
 }

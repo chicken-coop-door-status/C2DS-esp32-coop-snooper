@@ -2,19 +2,21 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"  // Include semaphore header
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "mqtt.h"
 #include "led.h"
 #include "sdkconfig.h"
-#include "esp_netif.h" // Include esp_netif header
+#include "esp_netif.h"
 
 static const char *TAG = "WIFI";
 
 static int s_retry_num = 0;
 
 static EventGroupHandle_t s_wifi_event_group;
+SemaphoreHandle_t wifi_connected_semaphore; // Declare the semaphore
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -52,12 +54,14 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        xSemaphoreGive(wifi_connected_semaphore); // Post the semaphore
     }
 }
 
 void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
+    wifi_connected_semaphore = xSemaphoreCreateBinary(); // Initialize the semaphore
 
     ESP_ERROR_CHECK(esp_netif_init());
 
