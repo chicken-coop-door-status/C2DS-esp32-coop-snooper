@@ -21,16 +21,6 @@ SemaphoreHandle_t wifi_connected_semaphore; // Declare the semaphore
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static void generate_random_mac(uint8_t *mac)
-{
-    // Generate a random MAC address
-    esp_fill_random(mac, 6);
-    // Ensure the locally administered bit is set
-    mac[0] |= 0x02;
-    // Ensure the unicast bit is cleared
-    mac[0] &= 0xFE;
-}
-
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
@@ -84,12 +74,6 @@ void wifi_init_sta(void)
                                                         NULL,
                                                         &instance_got_ip));
 
-    uint8_t mac[6];
-    generate_random_mac(mac);
-    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, mac));
-
-    ESP_LOGI(TAG, "Randomized MAC Address: %02x:%02x:%02x:%02x:%02x:%02x",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     ESP_ERROR_CHECK(esp_netif_set_hostname(netif, WIFI_HOSTNAME));
 

@@ -17,6 +17,7 @@ static const char *TAG = "COOP_SNOOPER";
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
+
 static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str)
 {
     // Uncomment to enable verbose debugging
@@ -26,6 +27,14 @@ static void tls_debug_callback(void *ctx, int level, const char *file, int line,
 
 void app_main(void)
 {
+#ifdef TENNIS_HOUSE
+    printf("Configuration: TENNIS_HOUSE\n");
+#elif defined(FARM_HOUSE)
+    printf("Configuration: FARM_HOUSE\n");
+#else
+    printf("Configuration: UNKNOWN\n");
+#endif
+
     init_spiffs();
 
     ESP_LOGI(TAG, "Initializing LED PWM");
