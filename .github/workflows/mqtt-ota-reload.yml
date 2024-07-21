@@ -19,6 +19,7 @@ jobs:
     - name: Unlock git-crypt
       run: |
         echo "${{ secrets.GIT_CRYPT_PASSWORD }}" | gpg --batch --yes --passphrase-fd 0 | git-crypt unlock
+      working-directory: ${{ github.workspace }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
@@ -37,28 +38,33 @@ jobs:
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
           /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_TENNIS_HOUSE=y\" fullclean build"
+      working-directory: ${{ github.workspace }}
         
     - name: Upload Tennis House image to S3
       env:
         S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
       run: |
         aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/tennis-house/coop-snooper.bin
+      working-directory: ${{ github.workspace }}
 
     - name: Clean build directory
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
           /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
+      working-directory: ${{ github.workspace }}
 
     - name: Build for Farm House
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
           /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_FARM_HOUSE=y\" fullclean build"
+      working-directory: ${{ github.workspace }}
 
     - name: Upload Farm House image to S3
       env:
         S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
       run: |
         aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/farm-house/coop-snooper.bin
+      working-directory: ${{ github.workspace }}
 
     - name: Publish MQTT message
       env:
@@ -69,3 +75,4 @@ jobs:
           --topic "coop/update/snooper" \
           --cli-binary-format raw-in-base64-out \
           --payload '{"message": "status_request"}'
+      working-directory: ${{ github.workspace }}
