@@ -25,21 +25,33 @@ jobs:
     - name: Use Docker image for ESP32 build
       run: |
         docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
-        docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c "idf.py build"
 
-    - name: Set up AWS CLI
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2
-
-    - name: Upload ESP32 image to S3
+    - name: Build for Tennis House
+      run: |
+        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+          /bin/bash -c "idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_TENNIS_HOUSE=y\" fullclean build"
+        
+    - name: Upload Tennis House image to S3
       env:
         S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
       run: |
-        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/coop-snooper.bin
+        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/tennis-house/coop-snooper.bin
+
+    - name: Clean build directory
+      run: |
+        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+          /bin/bash -c "idf.py fullclean"
+
+    - name: Build for Farm House
+      run: |
+        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+          /bin/bash -c "idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_FARM_HOUSE=y\" fullclean build"
+
+    - name: Upload Farm House image to S3
+      env:
+        S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
+      run: |
+        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/farm-house/coop-snooper.bin
 
     - name: Publish MQTT message
       env:
