@@ -18,7 +18,9 @@ jobs:
 
     - name: Unlock git-crypt
       run: |
-        echo "${{ secrets.GIT_CRYPT_PASSWORD }}" | gpg --batch --yes --passphrase-fd 0 | git-crypt unlock
+        echo "${{ secrets.GIT_CRYPT_SNOOPER_KEY }}" | base64 --decode > git-crypt-key
+        git-crypt unlock git-crypt-key
+        rm git-crypt-key
       working-directory: ${{ github.workspace }}
 
     - name: Set up Docker Buildx
