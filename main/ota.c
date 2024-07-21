@@ -30,8 +30,8 @@ bool was_booted_after_ota_update(void) {
         return false;
     }
 
-    esp_partition_t *running_partition = esp_ota_get_running_partition();
-    esp_partition_t *boot_partition = esp_ota_get_boot_partition();
+    const esp_partition_t *running_partition = esp_ota_get_running_partition();
+    const esp_partition_t *boot_partition = esp_ota_get_boot_partition();
 
     if (running_partition == NULL || boot_partition == NULL) {
         ESP_LOGE(TAG, "Failed to get partition information.");
@@ -136,8 +136,8 @@ void ota_task(void *pvParameter) {
                 ESP_LOGW(TAG, "Copying image to %s. %s", update_partition->label, buffer);
                 esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC,
                                         json_string, 0, 1, 0);
-                free(root);
-                free(json_string);
+                cJSON_Delete(root);
+                free((void *)json_string);
             }
             loop_count++;
         } else if (err != ESP_OK) {
@@ -157,7 +157,7 @@ void ota_task(void *pvParameter) {
     if (esp_https_ota_is_complete_data_received(ota_handle)) {
         ota_finish_err = esp_https_ota_finish(ota_handle);
         if (ota_finish_err == ESP_OK) {
-            // Using the update partition obtained earlier
+            // Set the new partition as the boot partition
             err = esp_ota_set_boot_partition(update_partition);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to set boot partition: %s", esp_err_to_name(err));
@@ -177,14 +177,12 @@ void ota_task(void *pvParameter) {
             sprintf(buffer, "OTA COMPLETED. Duration: %02d:%02d:%02d", hours, minutes, seconds);
             cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
             const char *json_string = cJSON_Print(root);
-            ESP_LOGI(
-                TAG,
-                "Image copy successful. Duration: %02d:%02d:%02d. Will reboot from partition %s",
-                hours, minutes, seconds, update_partition->label);
+            ESP_LOGI(TAG, "Image copy successful. Duration: %02d:%02d:%02d. Will reboot from partition %s",
+                     hours, minutes, seconds, update_partition->label);
             esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC,
                                     json_string, 0, 1, 0);
-            free(root);
-            free(json_string);
+            cJSON_Delete(root);
+            free((void *)json_string);
             if (my_mqtt_client != NULL) {
                 ESP_LOGI(TAG, "Stopping MQTT client");
                 esp_mqtt_client_stop(my_mqtt_client);
