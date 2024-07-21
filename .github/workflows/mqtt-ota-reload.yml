@@ -1,0 +1,37 @@
+name: OTA Reload on Commit
+
+on:
+  push:
+    branches:
+      - main  # Adjust this to your branch if necessary
+
+jobs:
+  ota_reload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Upload ESP32 image to S3
+      env:
+        S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
+      run: |
+        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/coop-snooper.bin
+
+    - name: Publish MQTT message
+      env:
+        AWS_IOT_ENDPOINT_URL: ${{ secrets.AWS_IOT_ENDPOINT_URL }}
+      run: |
+        aws iot-data publish \
+          --endpoint-url $AWS_IOT_ENDPOINT_URL \
+          --topic "coop/update/snooper" \
+          --cli-binary-format raw-in-base64-out \
+          --payload '{"message": "status_request"}'
