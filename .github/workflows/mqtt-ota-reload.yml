@@ -3,87 +3,99 @@ name: OTA Reload on Commit
 on:
   push:
     branches:
-      - main  # Adjust this to your branch if necessary
+      - main # Adjust this to your branch if necessary
 
 jobs:
   ota_reload:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    
-    - name: Install git-crypt
-      run: sudo apt-get install git-crypt
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Unlock git-crypt
-      run: |
-        echo "${{ secrets.GIT_CRYPT_SNOOPER_KEY }}" | base64 --decode > git-crypt-key
-        git-crypt unlock git-crypt-key
-        rm git-crypt-key
-      working-directory: ${{ github.workspace }}
+      - name: Install git-crypt
+        run: sudo apt-get install git-crypt
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      - name: Unlock git-crypt
+        run: |
+          echo "${{ secrets.GIT_CRYPT_SNOOPER_KEY }}" | base64 --decode > git-crypt-key
+          git-crypt unlock git-crypt-key
+          rm git-crypt-key
+        working-directory: ${{ github.workspace }}
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Set up Docker Build
+        uses: docker/setup-buildx-action@v1
 
-    - name: Use Docker image for ESP32 build
-      run: |
-        docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build for Tennis House
-      run: |
-        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_TENNIS_HOUSE=y\" fullclean build"
-      working-directory: ${{ github.workspace }}
-        
-    - name: Upload Tennis House image to S3
-      env:
-        S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: us-east-2
-      run: |
-        aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/tennis-house/coop-snooper.bin
-      working-directory: ${{ github.workspace }}
+      - name: Use Docker image for ESP32 build
+        run: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
 
-    - name: Clean build directory
-      run: |
-        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
-      working-directory: ${{ github.workspace }}
+      - name: Revise sdkconfig for Tennis House
+        run: |
+          sed -i 's/CONFIG_TENNIS_HOUSE=.*/CONFIG_TENNIS_HOUSE=y/' sdkconfig
+          sed -i 's/CONFIG_FARM_HOUSE=.*/CONFIG_FARM_HOUSE=/' sdkconfig
+        working-directory: ${{ github.workspace }}
 
-    - name: Build for Farm House
-      run: |
-        docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_FARM_HOUSE=y\" fullclean build"
-      working-directory: ${{ github.workspace }}
+      - name: Build for Tennis House
+        run: |
+          docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
+        working-directory: ${{ github.workspace }}
 
-    - name: Upload Farm House image to S3
-      env:
-        S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: us-east-2
-      run: |
-        aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/farm-house/coop-snooper.bin
-      working-directory: ${{ github.workspace }}
+      - name: Upload Tennis House image to S3
+        env:
+          S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/tennis-house/coop-snooper.bin
+        working-directory: ${{ github.workspace }}
 
-    - name: Publish MQTT message
-      env:
-        AWS_IOT_ENDPOINT_URL: ${{ secrets.AWS_IOT_ENDPOINT_URL }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: us-east-2
-      run: |
-        aws iot-data publish \
-          --endpoint-url $AWS_IOT_ENDPOINT_URL \
-          --topic "coop/update/snooper" \
-          --cli-binary-format raw-in-base64-out \
-          --payload '{"message": "status_request"}'
-      working-directory: ${{ github.workspace }}
+      - name: Clean build directory
+        run: |
+          docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
+        working-directory: ${{ github.workspace }}
+
+      - name: Revise sdkconfig for Farm House
+        run: |
+          sed -i 's/CONFIG_TENNIS_HOUSE=.*/CONFIG_TENNIS_HOUSE=/' sdkconfig
+          sed -i 's/CONFIG_FARM_HOUSE=.*/CONFIG_FARM_HOUSE=y/' sdkconfig
+        working-directory: ${{ github.workspace }}
+
+      - name: Build for Farm House
+        run: |
+          docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload Farm House image to S3
+        env:
+          S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/farm-house/coop-snooper.bin
+        working-directory: ${{ github.workspace }}
+
+      - name: Publish MQTT message
+        env:
+          AWS_IOT_ENDPOINT_URL: ${{ secrets.AWS_IOT_ENDPOINT_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          aws iot-data publish \
+            --endpoint-url $AWS_IOT_ENDPOINT_URL \
+            --topic "coop/update/snooper" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"message": "status_request"}'
+        working-directory: ${{ github.workspace }}
