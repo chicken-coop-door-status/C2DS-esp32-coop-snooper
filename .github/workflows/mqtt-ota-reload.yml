@@ -29,7 +29,7 @@ jobs:
     - name: Build for Tennis House
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c "idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_TENNIS_HOUSE=y\" fullclean build"
+          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_TENNIS_HOUSE=y\" fullclean build"
         
     - name: Upload Tennis House image to S3
       env:
@@ -40,12 +40,12 @@ jobs:
     - name: Clean build directory
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c "idf.py fullclean"
+          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
 
     - name: Build for Farm House
       run: |
         docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-          /bin/bash -c "idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_FARM_HOUSE=y\" fullclean build"
+          /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -DIDF_PROJECT_CONFIG=\"CONFIG_FARM_HOUSE=y\" fullclean build"
 
     - name: Upload Farm House image to S3
       env:
