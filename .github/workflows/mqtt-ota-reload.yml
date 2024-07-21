@@ -49,7 +49,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: us-east-2
       run: |
-        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/tennis-house/coop-snooper.bin
+        aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/tennis-house/coop-snooper.bin
       working-directory: ${{ github.workspace }}
 
     - name: Clean build directory
@@ -71,7 +71,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: us-east-2
       run: |
-        aws s3 cp build/coop-snooper.bin s3://$S3_BUCKET_NAME/farm-house/coop-snooper.bin
+        aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/farm-house/coop-snooper.bin
       working-directory: ${{ github.workspace }}
 
     - name: Publish MQTT message
