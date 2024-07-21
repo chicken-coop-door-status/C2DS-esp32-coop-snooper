@@ -33,12 +33,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         ESP_LOGW(TAG, "Location: %s", LOCATION);
+
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, 0);
         ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, msg_id);
+
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
         ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, msg_id);
+
         msg_id = esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
         ESP_LOGI(TAG, "Published initial status request, msg_id=%d", msg_id);
+
         mqtt_setup_complete = true; // MQTT setup is complete
         break;
     case MQTT_EVENT_DISCONNECTED:
@@ -128,7 +132,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-void mqtt_app_start(void)
+esp_mqtt_client_handle_t mqtt_app_start(void)
 {
     // Set mbedtls debug threshold to a higher level for detailed logs
     // mbedtls_debug_set_threshold(0);
@@ -185,6 +189,9 @@ void mqtt_app_start(void)
     } while (err != ESP_OK && retry_count < max_retries);
 
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start MQTT client after %d retries", retry_count);
+        ESP_LOGE(TAG, "Failed to start MQTT client after %d retries. Rebooting", retry_count);
+        esp_restart();
     }
+
+    return client;
 }

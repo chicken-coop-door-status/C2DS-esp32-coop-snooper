@@ -15,7 +15,7 @@ set(SOURCES
     "mp3.c"
     "spiffs.c"
     "ota.c"
-   
+    "time_sync.c"
 )
 
 # Specify the directory containing the header files

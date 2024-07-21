@@ -22,6 +22,6 @@ extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
 extern const uint8_t *cert;
 extern const uint8_t *key;
 
-void mqtt_app_start(void);
+esp_mqtt_client_handle_t mqtt_app_start(void);
 
 #endif // MQTT_H

@@ -11,6 +11,7 @@
 #include "esp_task_wdt.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
 #include "spiffs.h"
+#include "time_sync.h"
 
 static const char *TAG = "COOP_SNOOPER";
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
@@ -65,7 +66,7 @@ void app_main(void)
 
     // Initialize MQTT
     ESP_LOGI(TAG, "Initializing MQTT");
-    mqtt_app_start();
+    esp_mqtt_client_handle_t mqtt_client_handle = mqtt_app_start();
 
 
     // Initialize audio semaphore
@@ -81,7 +82,23 @@ void app_main(void)
         return;
     }
 
+    synchronize_time();
+
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
+
+    if (was_booted_after_ota_update()) {
+        char buffer[128];
+        ESP_LOGW(TAG, "Device booted after an OTA update.");
+        cJSON *root = cJSON_CreateObject();
+        sprintf(buffer, "Successful reboot after OTA update");
+        cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
+        const char *json_string = cJSON_Print(root);
+        esp_mqtt_client_publish(mqtt_client_handle, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
+        free(root);
+        free(json_string);
+    } else {
+        ESP_LOGW(TAG, "Device did not boot after an OTA update.");
+    }
 
     // Infinite loop to prevent exiting app_main
     while (true) {
