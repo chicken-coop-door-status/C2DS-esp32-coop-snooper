@@ -108,6 +108,15 @@ void led_task(void *pvParameter) {
             case LED_FLASHING_WHITE:
                 flash_led_color(8191, 8191, 8191);  // Flash WHITE
                 break;
+            case LED_FLASHING_YELLOW:
+                flash_led_color(8191, 8191, 0);  // Flash YELLOW
+                break;
+            case LED_FLASHING_CYAN:
+                flash_led_color(0, 8191, 8191);  // Flash CYAN
+                break;
+            case LED_FLASHING_ORANGE:
+                flash_led_color(8191, 4096, 0);  // Flash ORANGE
+                break;
             case LED_PULSATING_RED:
                 pulsate_led_color(8191, 0, 0);
                 break;
@@ -127,3 +136,4 @@ void led_task(void *pvParameter) {
         vTaskDelay(pdMS_TO_TICKS(100)); // Small delay to avoid CPU overuse
     }
 }
+
