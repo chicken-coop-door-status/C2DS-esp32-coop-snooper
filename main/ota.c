@@ -5,9 +5,9 @@
 #include "cJSON.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
+#include "led.h"
 #include "mqtt.h"
 #include "sdkconfig.h"
-#include "led.h"
 
 extern const uint8_t AmazonRootCA1_pem[];
 
@@ -91,7 +91,6 @@ void ota_task(void *pvParameter) {
     };
 
     ESP_LOGI(TAG, "Starting OTA with URL: %s", config.url);
-    current_led_state = LED_FLASHING_GREEN;
 
     esp_https_ota_config_t ota_config = {
         .http_config = &config,
@@ -128,14 +127,14 @@ void ota_task(void *pvParameter) {
         err = esp_https_ota_perform(ota_handle);
         if (err == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
             if (loop_count % LOG_PROGRESS_INTERVAL == 0) {
+                current_led_state = LED_FLASHING_GREEN;
                 convert_seconds(loop_count, &loop_minutes, &loop_seconds);
                 cJSON *root = cJSON_CreateObject();
                 sprintf(buffer, "%02d:%02d elapsed...", loop_minutes, loop_seconds);
                 cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
                 const char *json_string = cJSON_Print(root);
                 ESP_LOGW(TAG, "Copying image to %s. %s", update_partition->label, buffer);
-                esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC,
-                                        json_string, 0, 1, 0);
+                esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
                 cJSON_Delete(root);
                 free((void *)json_string);
             }
@@ -177,10 +176,9 @@ void ota_task(void *pvParameter) {
             sprintf(buffer, "OTA COMPLETED. Duration: %02d:%02d:%02d", hours, minutes, seconds);
             cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
             const char *json_string = cJSON_Print(root);
-            ESP_LOGI(TAG, "Image copy successful. Duration: %02d:%02d:%02d. Will reboot from partition %s",
-                     hours, minutes, seconds, update_partition->label);
-            esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC,
-                                    json_string, 0, 1, 0);
+            ESP_LOGI(TAG, "Image copy successful. Duration: %02d:%02d:%02d. Will reboot from partition %s", hours,
+                     minutes, seconds, update_partition->label);
+            esp_mqtt_client_publish(my_mqtt_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
             cJSON_Delete(root);
             free((void *)json_string);
             if (my_mqtt_client != NULL) {
