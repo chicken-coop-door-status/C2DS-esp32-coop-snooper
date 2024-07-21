@@ -23,7 +23,7 @@ jobs:
           rm git-crypt-key
         working-directory: ${{ github.workspace }}
 
-      - name: Set up Docker Build
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
       - name: Log in to Docker Hub
@@ -36,14 +36,10 @@ jobs:
         run: |
           docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
 
-      - name: Revise sdkconfig for Tennis House
-        run: |
-          sed -i 's/CONFIG_TENNIS_HOUSE=.*/CONFIG_TENNIS_HOUSE=y/' sdkconfig
-          sed -i 's/CONFIG_FARM_HOUSE=.*/CONFIG_FARM_HOUSE=/' sdkconfig
-        working-directory: ${{ github.workspace }}
-
       - name: Build for Tennis House
         run: |
+          echo "CONFIG_TENNIS_HOUSE=y" >> sdkconfig
+          echo "CONFIG_FARM_HOUSE=" >> sdkconfig
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
             /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
@@ -64,14 +60,10 @@ jobs:
             /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
         working-directory: ${{ github.workspace }}
 
-      - name: Revise sdkconfig for Farm House
-        run: |
-          sed -i 's/CONFIG_TENNIS_HOUSE=.*/CONFIG_TENNIS_HOUSE=/' sdkconfig
-          sed -i 's/CONFIG_FARM_HOUSE=.*/CONFIG_FARM_HOUSE=y/' sdkconfig
-        working-directory: ${{ github.workspace }}
-
       - name: Build for Farm House
         run: |
+          echo "CONFIG_TENNIS_HOUSE=" >> sdkconfig
+          echo "CONFIG_FARM_HOUSE=y" >> sdkconfig
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
             /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
