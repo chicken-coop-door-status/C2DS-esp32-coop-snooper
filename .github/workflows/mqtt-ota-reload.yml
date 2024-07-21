@@ -24,8 +24,8 @@ jobs:
 
     - name: Use Docker image for ESP32 build
       run: |
-        docker pull ${{ secrets.DOCKER_USERNAME }}/coop-snooper:latest
-        docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/coop-snooper:latest \
+        docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
+        docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
           /bin/bash -c "idf.py build"
 
     - name: Set up AWS CLI
