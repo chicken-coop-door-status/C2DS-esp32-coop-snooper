@@ -1,10 +1,8 @@
 #include "mqtt.h"
-#include "logging.h"
 #include "wifi.h" // Include wifi header to access semaphore
 static const char *TAG = "MQTT";
 
 TaskHandle_t ota_task_handle = NULL;  // Task handle for OTA updating
-TaskHandle_t logging_task_handle = NULL;  // Task handle for console logging 
 
 // Declare the global/static variables
 bool mqtt_setup_complete = false;
@@ -35,7 +33,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         ESP_LOGW(TAG, "Location: %s", LOCATION);
-        xTaskCreate(logging_task, "logging_task", 8192, (void *)client, 10, &logging_task_handle);
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, 0);
         ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, msg_id);
         msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
@@ -49,10 +46,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         if (ota_task_handle != NULL) {
             vTaskDelete(ota_task_handle);
             ota_task_handle = NULL;
-        }
-        if (logging_task_handle != NULL) {
-            vTaskDelete(logging_task_handle);
-            logging_task_handle = NULL;
         }
         
         // Reconnect logic

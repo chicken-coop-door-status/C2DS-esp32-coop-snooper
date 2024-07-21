@@ -11,7 +11,6 @@
 #include "esp_task_wdt.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
 #include "spiffs.h"
-#include "logging.h"
 
 static const char *TAG = "COOP_SNOOPER";
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
