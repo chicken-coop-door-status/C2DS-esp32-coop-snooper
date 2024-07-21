@@ -7,6 +7,7 @@
 #include "esp_timer.h"
 #include "mqtt.h"
 #include "sdkconfig.h"
+#include "led.h"
 
 extern const uint8_t AmazonRootCA1_pem[];
 
@@ -90,6 +91,7 @@ void ota_task(void *pvParameter) {
     };
 
     ESP_LOGI(TAG, "Starting OTA with URL: %s", config.url);
+    current_led_state = LED_FLASHING_GREEN;
 
     esp_https_ota_config_t ota_config = {
         .http_config = &config,

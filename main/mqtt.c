@@ -1,5 +1,7 @@
 #include "mqtt.h"
 #include "wifi.h" // Include wifi header to access semaphore
+#include "led.h"
+
 static const char *TAG = "MQTT";
 
 TaskHandle_t ota_task_handle = NULL;  // Task handle for OTA updating

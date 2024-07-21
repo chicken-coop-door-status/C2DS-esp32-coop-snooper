@@ -40,7 +40,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Initializing LED PWM");
     init_led_pwm();
 
-    ESP_LOGI(TAG, "Setting LED state to PULSATING_WHITE");
+    ESP_LOGI(TAG, "Setting LED state to flashing white");
     current_led_state = LED_FLASHING_WHITE;
 
     ESP_LOGI(TAG, "Creating LED task");
