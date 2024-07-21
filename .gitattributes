@@ -4,4 +4,4 @@ main/certs/original/* filter=git-crypt diff=git-crypt
 main/certs/iot-policy/* filter=git-crypt diff=git-crypt
 Kconfig filter=git-crypt diff=git-crypt
 sdkconfig filter=git-crypt diff=git-crypt
-sdkconfig.old filter=git-crypt diff=git-crypt
+sdkconfig.* filter=git-crypt diff=git-crypt

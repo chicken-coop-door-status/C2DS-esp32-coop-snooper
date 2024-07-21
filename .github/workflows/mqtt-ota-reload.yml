@@ -38,10 +38,8 @@ jobs:
 
       - name: Build for Tennis House
         run: |
-          echo "CONFIG_TENNIS_HOUSE=y" >> sdkconfig
-          echo "CONFIG_FARM_HOUSE=" >> sdkconfig
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
+            /bin/bash -c ". /opt/esp-idf/export.sh && export CONFIG_TENNIS_HOUSE=1 && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
 
       - name: Upload Tennis House image to S3
@@ -62,10 +60,8 @@ jobs:
 
       - name: Build for Farm House
         run: |
-          echo "CONFIG_TENNIS_HOUSE=" >> sdkconfig
-          echo "CONFIG_FARM_HOUSE=y" >> sdkconfig
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean build"
+            /bin/bash -c ". /opt/esp-idf/export.sh && export CONFIG_FARM_HOUSE=1 && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
 
       - name: Upload Farm House image to S3
