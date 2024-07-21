@@ -110,6 +110,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             }
         } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
             ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
+            if (ota_task_handle != NULL) {
+                ESP_LOGW(TAG, "OTA task is already running, skipping OTA update");
+                break;
+            }
             xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, &ota_task_handle);
         } else {
             ESP_LOGW(TAG, "Received unknown topic");
