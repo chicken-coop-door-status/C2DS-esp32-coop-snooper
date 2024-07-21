@@ -84,7 +84,7 @@ void ota_task(void *pvParameter) {
     char buffer[128];
     esp_err_t ota_finish_err = ESP_OK;
     esp_http_client_config_t config = {
-        .url = CONFIG_OTA_URL,
+        .url = OTA_URL,
         .cert_pem = (char *)AmazonRootCA1_pem,
         .timeout_ms = 30000,  // Increased timeout
     };
