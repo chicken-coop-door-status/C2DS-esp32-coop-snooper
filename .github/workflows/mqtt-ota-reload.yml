@@ -59,7 +59,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-2
         run: |
           TENNIS_VERSION=$S3_BUCKET_NAME/tennis-house/$VERSION_TAG/firmware.bin
-          ehco "TENNIS_VERSION=${TENNIS_VERSION}" >> $GITHUB_ENV
+          echo "TENNIS_VERSION=${TENNIS_VERSION}" >> $GITHUB_ENV
           aws s3 cp build/firmware.bin $TENNIS_VERSION
         working-directory: ${{ github.workspace }}
 
@@ -83,7 +83,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-2
         run: |
           FARM_VERSION=$S3_BUCKET_NAME/farm-house/$VERSION_TAG/firmware.bin
-          ehco "FARM_VERSION=${FARM_VERSION}" >> $GITHUB_ENV
+          echo "FARM_VERSION=${FARM_VERSION}" >> $GITHUB_ENV
           aws s3 cp build/firmware.bin $FARM_VERSION
         working-directory: ${{ github.workspace }}
 
