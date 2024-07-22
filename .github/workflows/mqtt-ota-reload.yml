@@ -36,6 +36,15 @@ jobs:
         run: |
           docker pull ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest
 
+      - name: Get the current commit hash
+        id: vars
+        run: echo ::set-output name=sha_short::$(git rev-parse --short HEAD)
+
+      - name: Tag the commit
+        run: |
+          VERSION_TAG="v1.0.0-${{ steps.vars.outputs.sha_short }}"
+          echo "VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
+
       - name: Build for Tennis House
         run: |
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
@@ -49,7 +58,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/tennis-house/coop-snooper.bin
+          TENNIS_VERSION=$S3_BUCKET_NAME/tennis-house/$VERSION_TAG/firmware.bin
+          ehco "TENNIS_VERSION=${TENNIS_VERSION}" >> $GITHUB_ENV
+          aws s3 cp build/firmware.bin $TENNIS_VERSION
         working-directory: ${{ github.workspace }}
 
       - name: Clean build directory
@@ -71,7 +82,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          aws s3 cp build/coop-snooper.bin $S3_BUCKET_NAME/farm-house/coop-snooper.bin
+          FARM_VERSION=$S3_BUCKET_NAME/farm-house/$VERSION_TAG/firmware.bin
+          ehco "FARM_VERSION=${FARM_VERSION}" >> $GITHUB_ENV
+          aws s3 cp build/firmware.bin $FARM_VERSION
         working-directory: ${{ github.workspace }}
 
       - name: Publish MQTT message
@@ -85,5 +98,5 @@ jobs:
             --endpoint-url $AWS_IOT_ENDPOINT_URL \
             --topic "coop/update/snooper" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"message": "status_request"}'
+            --payload '{"tennis-host": "${TENNIS_VERSION}", "farm-host": "${FARM_VERSION}"}'
         working-directory: ${{ github.workspace }}

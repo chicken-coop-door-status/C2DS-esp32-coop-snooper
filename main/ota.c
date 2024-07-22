@@ -12,6 +12,11 @@
 extern const uint8_t AmazonRootCA1_pem[];
 
 static const char *TAG = "OTA";
+#ifdef TENNIS_HOUSE
+static const char *HOST_KEY = "tennis-house";
+#elif defined(FARM_HOUSE)
+static const char *HOST_KEY = "farm-house";
+#endif
 
 #define MAX_RETRIES 5
 #define LOG_PROGRESS_INTERVAL 100
@@ -82,13 +87,45 @@ void convert_seconds(int totalSeconds, int *minutes, int *seconds) {
 
 void ota_task(void *pvParameter) {
     ESP_LOGI(TAG, "Starting OTA task");
+
     char buffer[128];
     esp_err_t ota_finish_err = ESP_OK;
+
+    // Parse the JSON string passed as a parameter
+    const char *json_string = (const char *)pvParameter;
+    cJSON *json = cJSON_Parse(json_string);
+    if (json == NULL) {
+        ESP_LOGE(TAG, "Failed to parse JSON string");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // Get the value for the HOST_KEY key
+    cJSON *host_key = cJSON_GetObjectItem(json, HOST_KEY);
+    if (host_key == NULL) {
+        ESP_LOGE(TAG, "Key '%s' not found in JSON string", HOST_KEY);
+        cJSON_Delete(json);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    const char *host_key_value = cJSON_GetStringValue(host_key);
+    if (host_key_value == NULL) {
+        ESP_LOGE(TAG, "Failed to get value for '%s'", HOST_KEY);
+        cJSON_Delete(json);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    ESP_LOGI(TAG, "Host key value: %s", host_key_value);
+
     esp_http_client_config_t config = {
-        .url = OTA_URL,
+        .url = host_key_value,  // Use the retrieved value as the OTA URL
         .cert_pem = (char *)AmazonRootCA1_pem,
         .timeout_ms = 30000,  // Increased timeout
     };
+
+    cJSON_Delete(json);
 
     ESP_LOGI(TAG, "Starting OTA with URL: %s", config.url);
 

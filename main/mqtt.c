@@ -120,7 +120,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                     // Clean up task handle if it has been deleted
                     ota_task_handle = NULL;
                 }
-                xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, &ota_task_handle);
+                xTaskCreate(&ota_task, "ota_task", 8192, event->data, 5, &ota_task_handle);
             } else {
                 ESP_LOGW(TAG, "Received unknown topic");
             }
@@ -137,6 +137,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             } else {
                 ESP_LOGI(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
             }
+            esp_restart();
             break;
         default:
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);
