@@ -48,19 +48,18 @@ jobs:
       - name: Build for Tennis House
         run: |
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-            /bin/bash -c ". /opt/esp-idf/export.sh && export CONFIG_TENNIS_HOUSE=1 && idf.py fullclean build"
+            /bin/bash -c ". /opt/esp-idf/export.sh && cp ./sdkconfig.tennis ./sdkconfig && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
 
       - name: Upload Tennis House image to S3
         env:
-          S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          TENNIS_VERSION=$S3_BUCKET_NAME/tennis-house/$VERSION_TAG/firmware.bin
-          echo "TENNIS_VERSION=${TENNIS_VERSION}" >> $GITHUB_ENV
-          aws s3 cp build/firmware.bin $TENNIS_VERSION
+          TENNIS_S3_VERSION=coop-snooper/tennis-house/$VERSION_TAG/firmware.bin
+          echo "TENNIS_S3_VERSION=${TENNIS_S3_VERSION}" >> $GITHUB_ENV
+          aws s3 cp build/firmware.bin s3://${{ secrets.AWS_S3_BUCKET}}/$TENNIS_S3_VERSION
         working-directory: ${{ github.workspace }}
 
       - name: Clean build directory
@@ -72,19 +71,18 @@ jobs:
       - name: Build for Farm House
         run: |
           docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-            /bin/bash -c ". /opt/esp-idf/export.sh && export CONFIG_FARM_HOUSE=1 && idf.py fullclean build"
+            /bin/bash -c ". /opt/esp-idf/export.sh && cp ./sdkconfig.farm ./sdkconfig && idf.py fullclean build"
         working-directory: ${{ github.workspace }}
 
       - name: Upload Farm House image to S3
         env:
-          S3_BUCKET_NAME: ${{ secrets.AWS_S3_SNOOPER_BUCKET_NAME }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
         run: |
-          FARM_VERSION=$S3_BUCKET_NAME/farm-house/$VERSION_TAG/firmware.bin
-          echo "FARM_VERSION=${FARM_VERSION}" >> $GITHUB_ENV
-          aws s3 cp build/firmware.bin $FARM_VERSION
+          FARM_S3_VERSION=coop-snooper/farm-house/$VERSION_TAG/firmware.bin
+          echo "FARM_S3_VERSION=${FARM_S3_VERSION}" >> $GITHUB_ENV
+          aws s3 cp build/firmware.bin s3://${{ secrets.AWS_S3_BUCKET}}/$FARM_S3_VERSION
         working-directory: ${{ github.workspace }}
 
       - name: Publish MQTT message
@@ -98,5 +96,5 @@ jobs:
             --endpoint-url $AWS_IOT_ENDPOINT_URL \
             --topic "coop/update/snooper" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"tennis-host": "${TENNIS_VERSION}", "farm-host": "${FARM_VERSION}"}'
+            --payload '{"tennis-host": "${{ secrets.AWS_S3_URL_PREFIX }}/${TENNIS_S3_VERSION}", "farm-host": "${{ secrets.AWS_S3_URL_PREFIX }}/${FARM_S3_VERSION}"}'
         working-directory: ${{ github.workspace }}
