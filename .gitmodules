@@ -1,3 +1,6 @@
 [submodule "components/gecl-time-sync-manager"]
 	path = components/gecl-time-sync-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-time-sync-manager
+[submodule "components/gecl-ota-manager"]
+	path = components/gecl-ota-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-ota-manager
