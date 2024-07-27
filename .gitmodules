@@ -10,3 +10,6 @@
 [submodule "components/gecl-rgb-led-manager"]
 	path = components/gecl-rgb-led-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-rgb-led-manager
+[submodule "components/gecl-wifi-manager"]
+	path = components/gecl-wifi-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-wifi-manager
