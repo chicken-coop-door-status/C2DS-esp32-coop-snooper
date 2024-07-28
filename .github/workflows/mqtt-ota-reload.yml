@@ -109,5 +109,5 @@ jobs:
             --endpoint-url $AWS_IOT_ENDPOINT_URL \
             --topic "coop/update/snooper" \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"tennis-host": "${{ env.TENNIS_URL_PATH }}", "farm-host": "${{ env.FARM_URL_PATH }}"}'
+            --payload '{"${{ secrets.TENNIS_HOUSE_SNOOPER_WIFI_MAC_ADDRESS }}": "${{ env.TENNIS_URL_PATH }}", "${{ secrets.FARM_HOUSE_SNOOPER_WIFI_MAC_ADDRESS }}": "${{ env.FARM_URL_PATH }}"}'
         working-directory: ${{ github.workspace }}
