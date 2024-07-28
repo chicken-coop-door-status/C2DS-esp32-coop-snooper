@@ -5,6 +5,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "gecl-logger-manager.h"
+#include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
@@ -159,6 +160,10 @@ void app_main(void) {
     printf("Configuration: UNKNOWN\n");
 #endif
 
+    char mac_address[18];
+    get_burned_in_mac_address(mac_address);
+    printf("Burned-In MAC Address: %s\n", mac_address);
+
     ESP_LOGI(TAG, "\n\nFirmware Version: %s\n\n", VERSION_TAG);
 
     ESP_LOGI(TAG, "Initializing LED PWM");
@@ -176,11 +181,6 @@ void app_main(void) {
     ESP_LOGI(TAG, "Setting LED state to flashing white");
 
     set_led(LED_FLASHING_WHITE);
-
-    // Initialize the mbedtls SSL configuration
-    // mbedtls_ssl_config conf;
-    // mbedtls_ssl_config_init(&conf);
-    // mbedtls_ssl_conf_dbg(&conf, tls_debug_callback, NULL);
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -243,7 +243,7 @@ void app_main(void) {
         free(root);
         free(json_string);
     } else {
-        ESP_LOGW(TAG, "Device did not boot after an OTA update.");
+        ESP_LOGW(TAG, "This device has not booted after OTA update.");
     }
 
     // Infinite loop to prevent exiting app_main

@@ -75,4 +75,5 @@ idf_component_register(
         gecl-time-sync-manager
         gecl-logger-manager
         gecl-mqtt-manager
+        gecl-misc-util-manager
 )
