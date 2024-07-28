@@ -16,3 +16,6 @@
 [submodule "components/gecl-mqtt-manager"]
 	path = components/gecl-mqtt-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-mqtt-manager
+[submodule "components/gecl-misc-util-manager"]
+	path = components/gecl-misc-util-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-misc-util-manager
