@@ -1,51 +1,47 @@
-#include "string.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "esp_log.h"
-#include "driver/i2s.h"
-#include "driver/gpio.h"
 #include "mp3.h"
+
+#include "driver/gpio.h"
+#include "driver/i2s.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "mp3dec.h"
-#include "spiffs.h"
-#include "squawk_mp3.h"  // Include the generated header file
 #include "sdkconfig.h"
+#include "squawk_mp3.h"  // Include the generated header file
+#include "string.h"
 
 static const char *TAG = "MP3_PLAYER";
 
-#define I2S_NUM         I2S_NUM_0
-#define I2S_BCK_PIN     GPIO_NUM_6   // BCLK
-#define I2S_WS_PIN      GPIO_NUM_5   // LRC
-#define I2S_DO_PIN      GPIO_NUM_7   // DIN
-#define I2S_SD_PIN      GPIO_NUM_10  // SD
-#define GAIN_PIN        GPIO_NUM_9   // GAIN
-#define SAMPLE_RATE     44100        // Audio sample rate
+#define I2S_NUM I2S_NUM_0
+#define I2S_BCK_PIN GPIO_NUM_6  // BCLK
+#define I2S_WS_PIN GPIO_NUM_5   // LRC
+#define I2S_DO_PIN GPIO_NUM_7   // DIN
+#define I2S_SD_PIN GPIO_NUM_10  // SD
+#define GAIN_PIN GPIO_NUM_9     // GAIN
+#define SAMPLE_RATE 44100       // Audio sample rate
 
 bool play_audio = false;
-float volume = 1.0f; // Volume control (0.0 to 1.0)
+float volume = 1.0f;          // Volume control (0.0 to 1.0)
 i2s_chan_handle_t tx_handle;  // Moved tx_handle to global scope
 
 void configure_i2s() {
-    i2s_config_t i2s_config = {
-        .mode = I2S_MODE_MASTER | I2S_MODE_TX,
-        .sample_rate = SAMPLE_RATE,
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-        .communication_format = I2S_COMM_FORMAT_I2S,
-        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 8,
-        .dma_buf_len = 64,
-        .use_apll = false,
-        .tx_desc_auto_clear = true,
-        .fixed_mclk = 0
-    };
+    i2s_config_t i2s_config = {.mode = I2S_MODE_MASTER | I2S_MODE_TX,
+                               .sample_rate = SAMPLE_RATE,
+                               .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+                               .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+                               .communication_format = I2S_COMM_FORMAT_I2S,
+                               .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+                               .dma_buf_count = 8,
+                               .dma_buf_len = 64,
+                               .use_apll = false,
+                               .tx_desc_auto_clear = true,
+                               .fixed_mclk = 0};
 
-    i2s_pin_config_t pin_config = {
-        .bck_io_num = I2S_BCK_PIN,
-        .ws_io_num = I2S_WS_PIN,
-        .data_out_num = I2S_DO_PIN,
-        .data_in_num = I2S_PIN_NO_CHANGE
-    };
+    i2s_pin_config_t pin_config = {.bck_io_num = I2S_BCK_PIN,
+                                   .ws_io_num = I2S_WS_PIN,
+                                   .data_out_num = I2S_DO_PIN,
+                                   .data_in_num = I2S_PIN_NO_CHANGE};
 
     // Configure and install I2S driver
     ESP_ERROR_CHECK(i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL));

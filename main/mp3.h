@@ -1,8 +1,9 @@
 #ifndef SNOOPER_MP3_H
 #define SNOOPER_MP3_H
 
-#include "esp_err.h"
 #include "driver/i2s_std.h"
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "mp3dec.h"
 
@@ -19,26 +20,27 @@ extern SemaphoreHandle_t audioSemaphore;
 extern SemaphoreHandle_t timer_semaphore;
 
 /* Audio */
-#define BSP_I2S_SCLK          (GPIO_NUM_14)
-#define BSP_I2S_MCLK          (GPIO_NUM_2)  // If needed, else set to -1 or I2S_PIN_NO_CHANGE
-#define BSP_I2S_LCLK          (GPIO_NUM_27)
-#define BSP_I2S_DOUT          (GPIO_NUM_21) // To Codec ES8311
-#define BSP_I2S_DSIN          (I2S_PIN_NO_CHANGE)  // Not used in this configuration
-#define BSP_POWER_AMP_IO      (GPIO_NUM_46)
-#define BSP_MUTE_STATUS       (GPIO_NUM_1)
+#define BSP_I2S_SCLK (GPIO_NUM_14)
+#define BSP_I2S_MCLK (GPIO_NUM_2)  // If needed, else set to -1 or I2S_PIN_NO_CHANGE
+#define BSP_I2S_LCLK (GPIO_NUM_27)
+#define BSP_I2S_DOUT (GPIO_NUM_21)        // To Codec ES8311
+#define BSP_I2S_DSIN (I2S_PIN_NO_CHANGE)  // Not used in this configuration
+#define BSP_POWER_AMP_IO (GPIO_NUM_46)
+#define BSP_MUTE_STATUS (GPIO_NUM_1)
 
-#define BSP_I2S_GPIO_CFG       \
-    {                          \
-        .mclk = BSP_I2S_MCLK,  \
-        .bclk = BSP_I2S_SCLK,  \
-        .ws = BSP_I2S_LCLK,    \
-        .dout = BSP_I2S_DOUT,  \
-        .din = BSP_I2S_DSIN,   \
-        .invert_flags = {      \
-            .mclk_inv = false, \
-            .bclk_inv = false, \
-            .ws_inv = false,   \
-        },                     \
+#define BSP_I2S_GPIO_CFG           \
+    {                              \
+        .mclk = BSP_I2S_MCLK,      \
+        .bclk = BSP_I2S_SCLK,      \
+        .ws = BSP_I2S_LCLK,        \
+        .dout = BSP_I2S_DOUT,      \
+        .din = BSP_I2S_DSIN,       \
+        .invert_flags =            \
+            {                      \
+                .mclk_inv = false, \
+                .bclk_inv = false, \
+                .ws_inv = false,   \
+            },                     \
     }
 
 #define BSP_I2S_DUPLEX_MONO_CFG(_sample_rate)                                                         \
@@ -49,7 +51,8 @@ extern SemaphoreHandle_t timer_semaphore;
     }
 
 // Function to initialize I2S peripheral
-esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config, i2s_chan_handle_t *tx_channel, i2s_chan_handle_t *rx_channel);
+esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config, i2s_chan_handle_t *tx_channel,
+                         i2s_chan_handle_t *rx_channel);
 
 // Function to mute/unmute audio
 esp_err_t audio_mute_function(int setting);
@@ -66,10 +69,10 @@ void audio_player_task(void *param);
 // Function to set the audio playback status
 void set_audio_playback(bool status);
 
-void set_gain(bool high_gain); 
+void set_gain(bool high_gain);
 
-void enable_amplifier(bool enable); 
+void enable_amplifier(bool enable);
 
-void set_volume(float new_volume); 
+void set_volume(float new_volume);
 
-#endif // SNOOPER_MP3_H
+#endif  // SNOOPER_MP3_H

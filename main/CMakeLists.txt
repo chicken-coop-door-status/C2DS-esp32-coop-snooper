@@ -8,18 +8,16 @@ message(STATUS "CMake version: ${CMAKE_VERSION}")
 # Define the source files
 set(SOURCES 
     "main.c" 
-    "wifi.c" 
-    "mqtt.c" 
-    "led.c" 
-    "state_handler.c"
     "mp3.c"
-    "spiffs.c"
-    "ota.c"
-    "time_sync.c"
 )
 
 # Specify the directory containing the header files
 set(INCLUDES ".")
+
+# Get all the component include directories
+file(GLOB_RECURSE COMPONENT_SOURCES "components/*/*.c")
+
+file(GLOB_RECURSE COMPONENT_INCLUDES "components/*/include")
 
 # Print sdkconfig variables
 message(STATUS "CONFIG_TENNIS_HOUSE: ${CONFIG_TENNIS_HOUSE}")
@@ -54,9 +52,27 @@ set(AWS_SOURCE "certs/AmazonRootCA1_pem.c")
 idf_component_register(
     SRCS 
         ${SOURCES}
+        ${COMPONENT_SOURCES}
         ${CERT_SOURCE}
         ${KEY_SOURCE}
         ${AWS_SOURCE}
     INCLUDE_DIRS 
         ${INCLUDES}
+        ${COMPONENT_INCLUDES}
+    REQUIRES
+        nvs_flash
+        mbedtls 
+        app_update 
+        esp_https_ota 
+        mqtt 
+        json
+        esp_netif
+        esp_wifi
+    PRIV_REQUIRES 
+        gecl-ota-manager
+        gecl-wifi-manager
+        gecl-rgb-led-manager
+        gecl-time-sync-manager
+        gecl-logger-manager
+        gecl-mqtt-manager
 )

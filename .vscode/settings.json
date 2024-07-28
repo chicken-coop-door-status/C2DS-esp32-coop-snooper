@@ -8,7 +8,7 @@
             "path": "/bin/zsh",
             "args": [
                 "-c",
-                "source ~/.zshrc && setidf && clear && exec zsh"
+                "source ~/.zshrc && setidf && export COMPONENT_KCONFIGS_DIR=$(pwd)/components && export EXTRA_COMPONENT_DIRS=$(pwd)/components && clear && exec zsh"            
             ]
         }
     },
