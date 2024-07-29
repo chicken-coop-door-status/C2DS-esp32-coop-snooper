@@ -145,6 +145,58 @@ static void tls_debug_callback(void *ctx, int level, const char *file, int line,
     // ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
 }
 
+QueueHandle_t start_logging(void) {
+    log_queue = xQueueCreate(LOG_QUEUE_LENGTH, sizeof(log_message_t));
+
+    if (log_queue == NULL) {
+        ESP_LOGE("MISC_UTIL", "Failed to create logger queue");
+        esp_restart();
+    }
+
+    xTaskCreate(&logger_task, "logger_task", 4096, NULL, 5, NULL);
+    return log_queue;
+}
+
+void setup_nvs_flash(void) {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+}
+
+esp_mqtt_client_handle_t start_mqtt(const mqtt_config_t *config) {
+    // Define the configuration
+
+    // Set the custom event handlers
+    mqtt_set_event_connected_handler(custom_handle_mqtt_event_connected);
+    mqtt_set_event_disconnected_handler(custom_handle_mqtt_event_disconnected);
+    mqtt_set_event_data_handler(custom_handle_mqtt_event_data);
+    mqtt_set_event_error_handler(custom_handle_mqtt_event_error);
+
+    // Start the MQTT client
+    esp_mqtt_client_handle_t client = mqtt_app_start(config);
+
+    return client;
+}
+
+void check_boot_origin(esp_mqtt_client_handle_t my_client) {
+    if (was_booted_after_ota_update()) {
+        char buffer[128];
+        ESP_LOGW("MISC_UTIL", "Device booted after an OTA update.");
+        cJSON *root = cJSON_CreateObject();
+        sprintf(buffer, "Successful reboot after OTA update");
+        cJSON_AddStringToObject(root, get_device_name(), buffer);
+        const char *json_string = cJSON_Print(root);
+        esp_mqtt_client_publish(my_client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
+        free(root);
+        free(json_string);
+    } else {
+        ESP_LOGW("MISC_UTIL", "Device did not boot after an OTA update.");
+    }
+}
+
 void app_main(void) {
 #ifdef TENNIS_HOUSE
     printf("Configuration: TENNIS_HOUSE\n");
@@ -159,63 +211,84 @@ void app_main(void) {
 #else
     printf("Configuration: UNKNOWN\n");
 #endif
-
-    char mac_address[18];
-    get_burned_in_mac_address(mac_address);
-    printf("Burned-In MAC Address: %s\n", mac_address);
-
     ESP_LOGI(TAG, "\n\nFirmware Version: %s\n\n", VERSION_TAG);
 
-    ESP_LOGI(TAG, "Initializing LED PWM");
-    init_led_pwm();
+    show_mac_address();
 
-    led_state_queue = xQueueCreate(10, sizeof(led_state_t));
-    if (led_state_queue == NULL) {
-        ESP_LOGE(TAG, "Could not initialize LED PWM");
-        esp_restart();
-    }
+    setup_nvs_flash();
 
-    ESP_LOGI(TAG, "Creating LED task");
-    xTaskCreate(&led_task, "led_task", 4096, NULL, 5, NULL);
-
-    ESP_LOGI(TAG, "Setting LED state to flashing white");
-
-    set_led(LED_FLASHING_WHITE);
-
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
-    ESP_LOGI(TAG, "Initialize WiFi");
     wifi_init_sta();
 
     synchronize_time();
 
-    log_queue = xQueueCreate(LOG_QUEUE_LENGTH, sizeof(log_message_t));
+    log_queue = start_logging();
 
-    if (log_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create logger queue");
-        esp_restart();
-    }
-
-    xTaskCreate(&logger_task, "logger_task", 4096, NULL, 5, NULL);
-
-    ESP_LOGI(TAG, "Initializing MQTT");
-    // esp_mqtt_client_handle_t mqtt_client_handle = mqtt_app_start();
-    // Define the configuration
     mqtt_config_t config = {.certificate = cert, .private_key = key, .broker_uri = CONFIG_AWS_IOT_ENDPOINT};
 
-    // Set the custom event handlers
-    mqtt_set_event_connected_handler(custom_handle_mqtt_event_connected);
-    mqtt_set_event_disconnected_handler(custom_handle_mqtt_event_disconnected);
-    mqtt_set_event_data_handler(custom_handle_mqtt_event_data);
-    mqtt_set_event_error_handler(custom_handle_mqtt_event_error);
+    esp_mqtt_client_handle_t client = start_mqtt(&config);
 
-    // Start the MQTT client
-    esp_mqtt_client_handle_t client = mqtt_app_start(&config);
+    check_boot_origin(client);
+
+    led_state_queue = start_led_task(client);
+
+    set_led(LED_FLASHING_WHITE);
+
+    // char mac_address[18];
+    // get_burned_in_mac_address(mac_address);
+    // printf("Burned-In MAC Address: %s\n", mac_address);
+
+    // ESP_LOGI(TAG, "\n\nFirmware Version: %s\n\n", VERSION_TAG);
+
+    // ESP_LOGI(TAG, "Initializing LED PWM");
+    // init_led_pwm();
+
+    // led_state_queue = xQueueCreate(10, sizeof(led_state_t));
+    // if (led_state_queue == NULL) {
+    //     ESP_LOGE(TAG, "Could not initialize LED PWM");
+    //     esp_restart();
+    // }
+
+    // ESP_LOGI(TAG, "Creating LED task");
+    // xTaskCreate(&led_task, "led_task", 4096, NULL, 5, NULL);
+
+    // ESP_LOGI(TAG, "Setting LED state to flashing white");
+
+    // set_led(LED_FLASHING_WHITE);
+
+    // esp_err_t ret = nvs_flash_init();
+    // if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    //     ESP_ERROR_CHECK(nvs_flash_erase());
+    //     ret = nvs_flash_init();
+    // }
+    // ESP_ERROR_CHECK(ret);
+
+    // ESP_LOGI(TAG, "Initialize WiFi");
+    // wifi_init_sta();
+
+    // synchronize_time();
+
+    // log_queue = xQueueCreate(LOG_QUEUE_LENGTH, sizeof(log_message_t));
+
+    // if (log_queue == NULL) {
+    //     ESP_LOGE(TAG, "Failed to create logger queue");
+    //     esp_restart();
+    // }
+
+    // xTaskCreate(&logger_task, "logger_task", 4096, NULL, 5, NULL);
+
+    // ESP_LOGI(TAG, "Initializing MQTT");
+    // // esp_mqtt_client_handle_t mqtt_client_handle = mqtt_app_start();
+    // // Define the configuration
+    // mqtt_config_t config = {.certificate = cert, .private_key = key, .broker_uri = CONFIG_AWS_IOT_ENDPOINT};
+
+    // // Set the custom event handlers
+    // mqtt_set_event_connected_handler(custom_handle_mqtt_event_connected);
+    // mqtt_set_event_disconnected_handler(custom_handle_mqtt_event_disconnected);
+    // mqtt_set_event_data_handler(custom_handle_mqtt_event_data);
+    // mqtt_set_event_error_handler(custom_handle_mqtt_event_error);
+
+    // // Start the MQTT client
+    // esp_mqtt_client_handle_t client = mqtt_app_start(&config);
 
     // Initialize audio semaphore
     audioSemaphore = xSemaphoreCreateBinary();
@@ -232,19 +305,19 @@ void app_main(void) {
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
-    if (was_booted_after_ota_update()) {
-        char buffer[128];
-        ESP_LOGW(TAG, "Device booted after an OTA update.");
-        cJSON *root = cJSON_CreateObject();
-        sprintf(buffer, "Successful reboot after OTA update");
-        cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
-        const char *json_string = cJSON_Print(root);
-        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
-        free(root);
-        free(json_string);
-    } else {
-        ESP_LOGW(TAG, "This device has not booted after OTA update.");
-    }
+    // if (was_booted_after_ota_update()) {
+    //     char buffer[128];
+    //     ESP_LOGW(TAG, "Device booted after an OTA update.");
+    //     cJSON *root = cJSON_CreateObject();
+    //     sprintf(buffer, "Successful reboot after OTA update");
+    //     cJSON_AddStringToObject(root, WIFI_HOSTNAME, buffer);
+    //     const char *json_string = cJSON_Print(root);
+    //     esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 1, 0);
+    //     free(root);
+    //     free(json_string);
+    // } else {
+    //     ESP_LOGW(TAG, "This device has not booted after OTA update.");
+    // }
 
     // Infinite loop to prevent exiting app_main
     while (true) {
