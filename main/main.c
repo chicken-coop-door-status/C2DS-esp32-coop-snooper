@@ -20,6 +20,8 @@
 #endif
 
 static const char *TAG = "COOP_SNOOPER";
+const char *device_name = CONFIG_WIFI_HOSTNAME;
+
 SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
@@ -143,6 +145,21 @@ static void tls_debug_callback(void *ctx, int level, const char *file, int line,
     // Uncomment to enable verbose debugging
     // const char *MBEDTLS_DEBUG_LEVEL[] = {"Error", "Warning", "Info", "Debug", "Verbose"};
     // ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
+}
+
+QueueHandle_t start_led_task(esp_mqtt_client_handle_t my_client) {
+    ESP_LOGI("MISC_UTIL", "Initializing LED PWM");
+    init_led_pwm();
+
+    led_state_queue = xQueueCreate(10, sizeof(led_state_t));
+    if (led_state_queue == NULL) {
+        ESP_LOGE("MISC_UTIL", "Could not initialize LED PWM");
+        esp_restart();
+    }
+
+    ESP_LOGI("MISC_UTIL", "Creating LED task");
+    xTaskCreate(&led_task, "led_task", 4096, (void *)my_client, 5, NULL);
+    return led_state_queue;
 }
 
 QueueHandle_t start_logging(void) {
