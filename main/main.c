@@ -136,6 +136,7 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event) {
         ESP_LOGI(TAG, "Last ESP error code: 0x%x", event->error_handle->esp_tls_last_esp_err);
         ESP_LOGI(TAG, "Last TLS stack error code: 0x%x", event->error_handle->esp_tls_stack_err);
         ESP_LOGI(TAG, "Last TLS library error code: 0x%x", event->error_handle->esp_tls_cert_verify_flags);
+        esp_mqtt_client_handle_t client = event->client;
         int attempts = 0;
         esp_err_t err;
 
