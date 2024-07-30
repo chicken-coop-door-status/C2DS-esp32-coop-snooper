@@ -10,6 +10,7 @@
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
 #include "gecl-time-sync-manager.h"
+#include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
 #include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
 #include "mp3.h"            // Include the mp3 header
@@ -257,6 +258,8 @@ void app_main(void) {
 #else
     printf("Configuration: UNKNOWN\n");
 #endif
+
+    print_version_info();
 
     show_mac_address();
 
