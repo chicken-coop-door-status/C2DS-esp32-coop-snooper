@@ -22,6 +22,9 @@
 static const char *TAG = "COOP_SNOOPER";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
+// Todo: move to sdkconfig
+#define MAX_RECONNECT_ATTEMPTS 5
+
 SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
@@ -133,6 +136,26 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event) {
         ESP_LOGI(TAG, "Last ESP error code: 0x%x", event->error_handle->esp_tls_last_esp_err);
         ESP_LOGI(TAG, "Last TLS stack error code: 0x%x", event->error_handle->esp_tls_stack_err);
         ESP_LOGI(TAG, "Last TLS library error code: 0x%x", event->error_handle->esp_tls_cert_verify_flags);
+        int attempts = 0;
+        esp_err_t err;
+
+        while (attempts < MAX_RECONNECT_ATTEMPTS) {
+            ESP_LOGI(TAG, "Attempting to reconnect MQTT client, attempt %d", attempts + 1);
+            err = esp_mqtt_client_disconnect(client);
+            if (err == ESP_OK) {
+                err = esp_mqtt_client_reconnect(client);
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "MQTT client reconnected successfully on attempt %d", attempts + 1);
+                    return;  // Successfully reconnected, exit the function
+                } else {
+                    ESP_LOGE(TAG, "Failed to reconnect MQTT client on attempt %d", attempts + 1);
+                }
+            } else {
+                ESP_LOGE(TAG, "Failed to disconnect MQTT client on attempt %d", attempts + 1);
+            }
+            attempts++;
+            vTaskDelay(pdMS_TO_TICKS(1000));  // Wait for 1 second before next attempt
+        }
     } else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
         ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
     } else {
