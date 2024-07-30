@@ -95,9 +95,10 @@ jobs:
       - name: Build for Farm House
         run: |
           docker run --rm \
-              -v $PWD:/workspace \
-              -w /workspace ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-              -e VERSION_TAG=${{ env.VERSION_TAG }} \
+            -v $PWD:/workspace \
+            -w /workspace \
+            -e VERSION_TAG=${{ env.VERSION_TAG }} \
+            ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
              /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -D SDKCONFIG=sdkconfig.farm build"
         working-directory: ${{ github.workspace }}
 
