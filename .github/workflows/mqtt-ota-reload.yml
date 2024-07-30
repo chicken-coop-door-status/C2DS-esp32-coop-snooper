@@ -64,7 +64,7 @@ jobs:
         run: |
           docker run --rm \
             -v $PWD:/workspace \
-            -w /workspace \ 
+            -w /workspace \
             -e VERSION_TAG=${{ env.VERSION_TAG }} \
             /bin/bash -c ". /opt/esp-idf/export.sh && cp ./sdkconfig.tennis ./sdkconfig && idf.py build"
         working-directory: ${{ github.workspace }}
