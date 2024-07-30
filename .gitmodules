@@ -19,3 +19,6 @@
 [submodule "components/gecl-misc-util-manager"]
 	path = components/gecl-misc-util-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-misc-util-manager
+[submodule "components/gecl-heartbeat-manager"]
+	path = components/gecl-heartbeat-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-heartbeat-manager
