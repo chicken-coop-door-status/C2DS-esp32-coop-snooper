@@ -97,7 +97,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
             if (cJSON_IsString(state)) {
                 ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
                 led_state_t led_state = convert_led_string_to_enum(state->valuestring);
-                if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||) {
+                if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE) {
                     ESP_LOGI(TAG, "Squawk!");
                     set_audio_playback(true);
                     set_volume(1.0f);
