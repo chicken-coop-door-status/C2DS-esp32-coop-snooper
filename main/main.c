@@ -19,9 +19,6 @@
 static const char *TAG = "COOP_SNOOPER";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
-// Todo: move to sdkconfig
-#define MAX_RECONNECT_ATTEMPTS 5
-
 SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
