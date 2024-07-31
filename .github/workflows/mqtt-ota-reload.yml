@@ -67,7 +67,7 @@ jobs:
             -w /workspace \
             -e VERSION_TAG=${{ env.VERSION_TAG }} \
             ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -D SDKCONFIG=sdkconfig.tennis build"
+            /bin/bash -c ". /opt/esp-idf/export.sh && git config --global --add safe.directory /workspace && idf.py -D SDKCONFIG=sdkconfig.tennis build"
         working-directory: ${{ github.workspace }}
 
       - name: Append Tennis House S3/URL path to environment
@@ -99,7 +99,7 @@ jobs:
             -w /workspace \
             -e VERSION_TAG=${{ env.VERSION_TAG }} \
             ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
-             /bin/bash -c ". /opt/esp-idf/export.sh && idf.py -D SDKCONFIG=sdkconfig.farm build"
+             /bin/bash -c ". /opt/esp-idf/export.sh && git config --global --add safe.directory /workspace && idf.py -D SDKCONFIG=sdkconfig.farm build"
         working-directory: ${{ github.workspace }}
 
       - name: Append Farm House S3/URL path to environment

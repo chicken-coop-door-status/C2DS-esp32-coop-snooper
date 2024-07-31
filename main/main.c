@@ -16,10 +16,6 @@
 #include "mp3.h"            // Include the mp3 header
 #include "nvs_flash.h"
 
-#ifndef VERSION_TAG
-#define VERSION_TAG "undefined"
-#endif
-
 static const char *TAG = "COOP_SNOOPER";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
@@ -31,6 +27,8 @@ SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio play
 
 QueueHandle_t log_queue = NULL;
 QueueHandle_t led_state_queue = NULL;
+
+TaskHandle_t ota_handler_task_handle = NULL;  // Task handle for OTA updating
 
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
@@ -58,9 +56,9 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
 
 void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DISCONNECTED");
-    if (ota_task_handle != NULL) {
-        vTaskDelete(ota_task_handle);
-        ota_task_handle = NULL;
+    if (ota_handler_task_handle != NULL) {
+        vTaskDelete(ota_handler_task_handle);
+        ota_handler_task_handle = NULL;
     }
     // Reconnect logic
     int retry_count = 0;
@@ -117,17 +115,17 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         }
     } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
-        if (ota_task_handle != NULL) {
-            eTaskState task_state = eTaskGetState(ota_task_handle);
+        if (ota_handler_task_handle != NULL) {
+            eTaskState task_state = eTaskGetState(ota_handler_task_handle);
             if (task_state != eDeleted) {
                 ESP_LOGW(TAG, "OTA task is already running or not yet cleaned up, skipping OTA update");
                 return;
             }
             // Clean up task handle if it has been deleted
-            ota_task_handle = NULL;
+            ota_handler_task_handle = NULL;
         }
         set_led(LED_FLASHING_GREEN);
-        xTaskCreate(&ota_task, "ota_task", 8192, event, 5, &ota_task_handle);
+        xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
     }
 }
 
@@ -241,7 +239,7 @@ void check_boot_origin(esp_mqtt_client_handle_t my_client) {
 
 void show_system_info() {
     esp_partition_t *running = esp_ota_get_running_partition();
-    ESP_LOGI(TAG, "\n\nFirmware: %s\nPartition: %s\n", VERSION_TAG, running->label);
+    ESP_LOGI(TAG, "\n\nFirmware: %s\nPartition: %s\n", GECL_FIRMWARE_VERSION, running->label);
 }
 
 void app_main(void) {
