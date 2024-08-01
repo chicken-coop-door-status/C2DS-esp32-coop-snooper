@@ -25,3 +25,6 @@
 [submodule "components/gecl-versioning-manager"]
 	path = components/gecl-versioning-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-versioning-manager
+[submodule "components/gecl-telemetry-manager"]
+	path = components/gecl-telemetry-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-telemetry-manager
