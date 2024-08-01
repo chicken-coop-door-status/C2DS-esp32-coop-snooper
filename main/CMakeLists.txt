@@ -84,4 +84,5 @@ idf_component_register(
         gecl-mqtt-manager
         gecl-misc-util-manager
         gecl-versioning-manager
+        gecl-telemetry-manager
 )
