@@ -47,6 +47,9 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
     msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
     ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, msg_id);
 
+    msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, 0);
+    ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, msg_id);
+
     msg_id =
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
     ESP_LOGI(TAG, "Published initial status request, msg_id=%d", msg_id);
@@ -131,6 +134,11 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         }
         set_led(LED_FLASHING_GREEN);
         xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
+    } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, event->topic_len) == 0) {
+        ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC);
+        request_telemetry();
+    } else {
+        ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
     }
 }
 
