@@ -279,6 +279,10 @@ void app_main(void) {
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
+    init_telemetry_manager(LOCATION, CONFIG_AWS_IOT_ENDPOINT);
+
+    request_telemetry();
+
     // Infinite loop to prevent exiting app_main
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(1000));  // Delay to allow other tasks to run
