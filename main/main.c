@@ -9,6 +9,7 @@
 #include "gecl-mqtt-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
+#include "gecl-telemetry-manager.h"
 #include "gecl-time-sync-manager.h"
 #include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
