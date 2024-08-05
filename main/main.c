@@ -97,6 +97,7 @@ void squawk(void) {
 
 void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
+    esp_mqtt_client_handle_t client = event->client;
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
         ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
         // Handle the status response
@@ -132,10 +133,25 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         }
     } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
+        cJSON *ota_root = cJSON_CreateObject();
+        cJSON_AddStringToObject(ota_root, "OTA", "OTA update requested");
+        char const *ota_json_string = cJSON_Print(ota_root);
+        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, ota_json_string, 0, 0, 0);
+        cJSON_Delete(ota_root);
         if (ota_handler_task_handle != NULL) {
             eTaskState task_state = eTaskGetState(ota_handler_task_handle);
             if (task_state != eDeleted) {
-                ESP_LOGW(TAG, "OTA task is already running or not yet cleaned up, skipping OTA update");
+                char log_message[256];  // Adjust the size according to your needs
+                snprintf(log_message, sizeof(log_message),
+                         "OTA task is already running or not yet cleaned up, skipping OTA update. task_state=%d",
+                         task_state);
+
+                ESP_LOGW(TAG, "%s", log_message);
+                cJSON *root = cJSON_CreateObject();
+                cJSON_AddStringToObject(root, "OTA", log_message);
+                char const *json_string = cJSON_Print(root);
+                esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 0, 0);
+                cJSON_Delete(root);
                 return;
             }
             // Clean up task handle if it has been deleted
