@@ -112,6 +112,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
                 // Only set the LED state if it's not LED_FLASHING_GREEN,
                 // or if the current state is not already LED_FLASHING_GREEN.
                 // Only a reboot breaks out of the LED_FLASHING_GREEN state.
+                // TODO - Add a check for LED_FLASHING_GREEN longer than a certain time
                 if (led_state != LED_FLASHING_GREEN || current_led_state != LED_FLASHING_GREEN) {
                     if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||
                         led_state == LED_FLASHING_YELLOW || led_state == LED_FLASHING_CYAN ||
@@ -160,12 +161,6 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event) {
         ESP_LOGI(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
     }
     esp_restart();
-}
-
-static void tls_debug_callback(void *ctx, int level, const char *file, int line, const char *str) {
-    // Uncomment to enable verbose debugging
-    // const char *MBEDTLS_DEBUG_LEVEL[] = {"Error", "Warning", "Info", "Debug", "Verbose"};
-    // ESP_LOGI("mbedTLS", "%s: %s:%04d: %s", MBEDTLS_DEBUG_LEVEL[level], file, line, str);
 }
 
 QueueHandle_t start_led_task(esp_mqtt_client_handle_t my_client) {
