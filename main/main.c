@@ -88,6 +88,13 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
     }
 }
 
+void squawk(void) {
+    set_audio_playback(true);
+    set_volume(1.0f);
+    set_gain(true);
+    enable_amplifier(true);
+}
+
 void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
@@ -106,12 +113,10 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
                 // or if the current state is not already LED_FLASHING_GREEN.
                 // Only a reboot breaks out of the LED_FLASHING_GREEN state.
                 if (led_state != LED_FLASHING_GREEN || current_led_state != LED_FLASHING_GREEN) {
-                    if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE) {
-                        ESP_LOGI(TAG, "Squawk!");
-                        set_audio_playback(true);
-                        set_volume(1.0f);
-                        set_gain(true);
-                        enable_amplifier(true);
+                    if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||
+                        led_state == LED_FLASHING_YELLOW || led_state == LED_FLASHING_CYAN ||
+                        led_state == LED_FLASHING_MAGENTA || led_state == LED_FLASHING_ORANGE) {
+                        squawk();
                     }
                     set_led(led_state);
                     current_led_state = led_state;  // Update the current LED state
