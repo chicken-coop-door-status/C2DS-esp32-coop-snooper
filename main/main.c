@@ -112,7 +112,9 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
                 // Only set the LED state if it's not LED_FLASHING_GREEN,
                 // or if the current state is not already LED_FLASHING_GREEN.
                 // Only a reboot breaks out of the LED_FLASHING_GREEN state.
+                //
                 // TODO - Add a check for LED_FLASHING_GREEN longer than a certain time
+                //
                 if (led_state != LED_FLASHING_GREEN || current_led_state != LED_FLASHING_GREEN) {
                     if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||
                         led_state == LED_FLASHING_YELLOW || led_state == LED_FLASHING_CYAN ||
