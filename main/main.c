@@ -23,7 +23,6 @@ const char *device_name = CONFIG_WIFI_HOSTNAME;
 SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
 
-QueueHandle_t log_queue = NULL;
 QueueHandle_t led_state_queue = NULL;
 
 TaskHandle_t ota_handler_task_handle = NULL;  // Task handle for OTA updating
@@ -264,8 +263,6 @@ void app_main(void) {
 
     synchronize_time();
 
-    log_queue = start_logging();
-
     mqtt_config_t config = {.certificate = cert, .private_key = key, .broker_uri = CONFIG_AWS_IOT_ENDPOINT};
 
     esp_mqtt_client_handle_t client = start_mqtt(&config);
@@ -292,6 +289,8 @@ void app_main(void) {
     init_telemetry_manager(LOCATION, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC);
 
     transmit_telemetry();
+
+    init_cloud_logger(client, CONFIG_MQTT_PUBLISH_LOG_TOPIC);
 
     // Infinite loop to prevent exiting app_main
     while (true) {
