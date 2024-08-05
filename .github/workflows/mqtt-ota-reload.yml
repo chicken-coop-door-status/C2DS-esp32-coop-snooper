@@ -62,7 +62,7 @@ jobs:
 
       - name: Verify the submodule contents
         run: |
-          git config --global --add safe.directory /workspace && ls -la /workspace/components/gecl-ota-manager/
+          git config --global --add safe.directory /workspace && ls -la /workspace/components
 
       - name: Build for Tennis House
         run: |
