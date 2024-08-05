@@ -8,7 +8,7 @@
             "path": "/bin/zsh",
             "args": [
                 "-c",
-                "source ~/.zshrc && setidf && export COMPONENT_KCONFIGS_DIR=$(pwd)/components && export EXTRA_COMPONENT_DIRS=$(pwd)/components && clear && exec zsh"            
+                "source ~/.zshrc && setidf && export COMPONENT_KCONFIGS_DIR=$(pwd)/components && export EXTRA_COMPONENT_DIRS=$(pwd)/components && clear && exec zsh"
             ]
         }
     },
@@ -21,4 +21,40 @@
         "mqtt.h": "c",
         "gecl-wifi-manager.h": "c"
     },
+    "files.exclude": {
+        "components/gecl-time-sync-manager": true,
+        "components/gecl-ota-manager": true,
+        "components/gecl-logger-manager": true,
+        "components/gecl-rgb-led-manager": true,
+        "components/gecl-wifi-manager": true,
+        "components/gecl-mqtt-manager": true,
+        "components/gecl-misc-util-manager": true,
+        "components/gecl-heartbeat-manager": true,
+        "components/gecl-versioning-manager": true,
+        "components/gecl-telemetry-manager": true
+    },
+    "search.exclude": {
+        "components/gecl-time-sync-manager": true,
+        "components/gecl-ota-manager": true,
+        "components/gecl-logger-manager": true,
+        "components/gecl-rgb-led-manager": true,
+        "components/gecl-wifi-manager": true,
+        "components/gecl-mqtt-manager": true,
+        "components/gecl-misc-util-manager": true,
+        "components/gecl-heartbeat-manager": true,
+        "components/gecl-versioning-manager": true,
+        "components/gecl-telemetry-manager": true
+    },
+    "git.ignoredRepositories": [
+        "components/gecl-time-sync-manager",
+        "components/gecl-ota-manager",
+        "components/gecl-logger-manager",
+        "components/gecl-rgb-led-manager",
+        "components/gecl-wifi-manager",
+        "components/gecl-mqtt-manager",
+        "components/gecl-misc-util-manager",
+        "components/gecl-heartbeat-manager",
+        "components/gecl-versioning-manager",
+        "components/gecl-telemetry-manager"
+    ]
 }
