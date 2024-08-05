@@ -60,6 +60,10 @@ jobs:
             git push origin $VERSION_TAG
           fi
 
+      - name: Verify the submodule contents
+        run: |
+          git config --global --add safe.directory /workspace && ls -la /workspace/components/gecl-ota-manager/
+
       - name: Build for Tennis House
         run: |
           docker run --rm \
