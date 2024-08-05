@@ -116,6 +116,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
                     if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||
                         led_state == LED_FLASHING_YELLOW || led_state == LED_FLASHING_CYAN ||
                         led_state == LED_FLASHING_MAGENTA || led_state == LED_FLASHING_ORANGE) {
+                        // Squawk if the LED is flashing
                         squawk();
                     }
                     set_led(led_state);
