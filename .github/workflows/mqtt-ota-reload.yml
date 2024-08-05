@@ -60,15 +60,12 @@ jobs:
             git push origin $VERSION_TAG
           fi
 
-      - name: Verify the submodule contents
-        run: |
-          git config --global --add safe.directory /workspace && ls -la /workspace/components
-
       - name: Build for Tennis House
         run: |
           docker run --rm \
             -v $PWD:/workspace \
             -w /workspace \
+            -e COMPONENT_KCONFIGS_DIR=/workspace/components \
             -e VERSION_TAG=${{ env.VERSION_TAG }} \
             ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
             /bin/bash -c ". /opt/esp-idf/export.sh && git config --global --add safe.directory /workspace && idf.py -D SDKCONFIG=sdkconfig.tennis build"
@@ -101,6 +98,7 @@ jobs:
           docker run --rm \
             -v $PWD:/workspace \
             -w /workspace \
+            -e COMPONENT_KCONFIGS_DIR=/workspace/components \
             -e VERSION_TAG=${{ env.VERSION_TAG }} \
             ${{ secrets.DOCKER_USERNAME }}/esp-idf:latest \
              /bin/bash -c ". /opt/esp-idf/export.sh && git config --global --add safe.directory /workspace && idf.py -D SDKCONFIG=sdkconfig.farm build"
