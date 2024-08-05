@@ -129,7 +129,7 @@ jobs:
         run: |
           aws iot-data publish \
             --endpoint-url $AWS_IOT_ENDPOINT_URL \
-            --topic "coop/update/snooper" \
+            --topic "farm/coop/snooper/update" \
             --cli-binary-format raw-in-base64-out \
             --payload '{"${{ secrets.TENNIS_HOUSE_SNOOPER_WIFI_MAC_ADDRESS }}": "${{ env.TENNIS_URL_PATH }}", "${{ secrets.FARM_HOUSE_SNOOPER_WIFI_MAC_ADDRESS }}": "${{ env.FARM_URL_PATH }}"}'
         working-directory: ${{ github.workspace }}
