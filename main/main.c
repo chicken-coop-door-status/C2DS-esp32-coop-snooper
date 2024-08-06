@@ -133,7 +133,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
     } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
         cJSON *ota_root = cJSON_CreateObject();
-        cJSON_AddStringToObject(ota_root, "OTA", "OTA update requested");
+        cJSON_AddStringToObject(ota_root, device_name, "OTA update requested");
         char const *ota_json_string = cJSON_Print(ota_root);
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, ota_json_string, 0, 0, 0);
         cJSON_Delete(ota_root);
@@ -147,7 +147,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
 
                 ESP_LOGW(TAG, "%s", log_message);
                 cJSON *root = cJSON_CreateObject();
-                cJSON_AddStringToObject(root, "OTA", log_message);
+                cJSON_AddStringToObject(root, device_name, log_message);
                 char const *json_string = cJSON_Print(root);
                 esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 0, 0);
                 cJSON_Delete(root);
