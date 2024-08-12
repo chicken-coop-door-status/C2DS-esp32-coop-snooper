@@ -7,6 +7,7 @@
 #include "gecl-logger-manager.h"
 #include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
+#include "gecl-nvs-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
 #include "gecl-telemetry-manager.h"
@@ -22,8 +23,6 @@ const char *device_name = CONFIG_WIFI_HOSTNAME;
 
 SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
-
-QueueHandle_t led_state_queue = NULL;
 
 TaskHandle_t ota_handler_task_handle = NULL;  // Task handle for OTA updating
 
@@ -158,9 +157,6 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         }
         set_led(LED_FLASHING_GREEN);
         xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
-    } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, event->topic_len) == 0) {
-        ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC);
-        transmit_telemetry();
     } else {
         ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
     }
@@ -180,62 +176,6 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event) {
     esp_restart();
 }
 
-QueueHandle_t start_led_task(esp_mqtt_client_handle_t my_client) {
-    ESP_LOGI("MISC_UTIL", "Initializing LED PWM");
-    init_led_pwm();
-
-    led_state_queue = xQueueCreate(10, sizeof(led_state_t));
-    if (led_state_queue == NULL) {
-        ESP_LOGE("MISC_UTIL", "Could not initialize LED PWM");
-        esp_restart();
-    }
-
-    ESP_LOGI("MISC_UTIL", "Creating LED task");
-    xTaskCreate(&led_task, "led_task", 4096, (void *)my_client, 5, NULL);
-    return led_state_queue;
-}
-
-QueueHandle_t start_logging(void) {
-    log_queue = xQueueCreate(LOG_QUEUE_LENGTH, sizeof(log_message_t));
-
-    if (log_queue == NULL) {
-        ESP_LOGE("MISC_UTIL", "Failed to create logger queue");
-        esp_restart();
-    }
-
-    xTaskCreate(&logger_task, "logger_task", 4096, NULL, 5, NULL);
-    return log_queue;
-}
-
-void setup_nvs_flash(void) {
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-}
-
-esp_mqtt_client_handle_t start_mqtt(const mqtt_config_t *config) {
-    // Define the configuration
-
-    // Set the custom event handlers
-    mqtt_set_event_connected_handler(custom_handle_mqtt_event_connected);
-    mqtt_set_event_disconnected_handler(custom_handle_mqtt_event_disconnected);
-    mqtt_set_event_data_handler(custom_handle_mqtt_event_data);
-    mqtt_set_event_error_handler(custom_handle_mqtt_event_error);
-
-    // Start the MQTT client
-    esp_mqtt_client_handle_t client = mqtt_app_start(config);
-
-    return client;
-}
-
-void show_system_info() {
-    esp_partition_t *running = esp_ota_get_running_partition();
-    ESP_LOGI(TAG, "\n\nFirmware: %s\nPartition: %s\n", GECL_FIRMWARE_VERSION, running->label);
-}
-
 void app_main(void) {
 #ifdef TENNIS_HOUSE
     printf("Configuration: TENNIS_HOUSE\n");
@@ -251,23 +191,22 @@ void app_main(void) {
     printf("Configuration: UNKNOWN\n");
 #endif
 
-    print_version_info();
+    init_nvs();
 
-    show_mac_address();
+    init_wifi();
 
-    setup_nvs_flash();
+    init_time_sync();
 
-    show_system_info();
-
-    wifi_init_sta();
-
-    synchronize_time();
+    mqtt_set_event_connected_handler(custom_handle_mqtt_event_connected);
+    mqtt_set_event_disconnected_handler(custom_handle_mqtt_event_disconnected);
+    mqtt_set_event_data_handler(custom_handle_mqtt_event_data);
+    mqtt_set_event_error_handler(custom_handle_mqtt_event_error);
 
     mqtt_config_t config = {.certificate = cert, .private_key = key, .broker_uri = CONFIG_AWS_IOT_ENDPOINT};
 
-    esp_mqtt_client_handle_t client = start_mqtt(&config);
+    esp_mqtt_client_handle_t client = init_mqtt(&config);
 
-    led_state_queue = start_led_task(client);
+    init_rgb_led(client);
 
     set_led(LED_FLASHING_WHITE);
 
@@ -286,9 +225,8 @@ void app_main(void) {
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
-    init_telemetry_manager(LOCATION, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC);
-
-    transmit_telemetry();
+    init_telemetry_manager(device_name, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC,
+                           CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
 
     init_cloud_logger(client, CONFIG_MQTT_PUBLISH_LOG_TOPIC);
 

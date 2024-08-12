@@ -20,7 +20,8 @@
         "cstdint": "c",
         "mqtt.h": "c",
         "gecl-wifi-manager.h": "c",
-        "gecl-versioning-manager.h": "c"
+        "gecl-versioning-manager.h": "c",
+        "freertos.h": "c"
     },
     "files.exclude": {
         "components/gecl-time-sync-manager": true,

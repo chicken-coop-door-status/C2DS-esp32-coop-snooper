@@ -85,4 +85,5 @@ idf_component_register(
         gecl-misc-util-manager
         gecl-versioning-manager
         gecl-telemetry-manager
+        gecl-nvs-manager
 )
