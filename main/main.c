@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "freertos/timers.h"  // Include FreeRTOS timers header
 #include "gecl-logger-manager.h"
 #include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
@@ -18,6 +19,8 @@
 #include "mp3.h"            // Include the mp3 header
 #include "nvs_flash.h"
 
+#define ORPHAN_TIMEOUT pdMS_TO_TICKS(7200000)  // 2 hours in milliseconds
+
 static const char *TAG = "COOP_SNOOPER";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
@@ -26,6 +29,8 @@ SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio play
 
 TaskHandle_t ota_handler_task_handle = NULL;  // Task handle for OTA updating
 
+TimerHandle_t orphan_timer;
+
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
@@ -33,6 +38,29 @@ extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
 extern const uint8_t coop_snooper_farmhouse_certificate_pem[];
 extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
 #endif
+
+void squawk(void) {
+    set_audio_playback(true);
+    set_volume(1.0f);
+    set_gain(true);
+    enable_amplifier(true);
+}
+
+// Callback function for timer expiration
+void orphan_timer_callback(TimerHandle_t xTimer) {
+    ESP_LOGW(TAG, "No message received for 2 hours. Triggering notification.");
+
+    // Set LED to cyan and trigger squawk
+    set_led(LED_FLASHING_CYAN);
+    squawk();
+}
+
+// Function to reset the timer whenever a message is received
+void reset_orphan_timer(void) {
+    if (xTimerReset(orphan_timer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to reset notification timer");
+    }
+}
 
 void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
     esp_mqtt_client_handle_t client = event->client;
@@ -86,16 +114,10 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
     }
 }
 
-void squawk(void) {
-    set_audio_playback(true);
-    set_volume(1.0f);
-    set_gain(true);
-    enable_amplifier(true);
-}
-
 void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
     esp_mqtt_client_handle_t client = event->client;
+    reset_orphan_timer();
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
         ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
         // Handle the status response
@@ -229,6 +251,19 @@ void app_main(void) {
                            CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
 
     init_cloud_logger(client, CONFIG_MQTT_PUBLISH_LOG_TOPIC);
+
+    // Create an orphan timer to trigger a notification if no message is received for 2 hours
+    orphan_timer = xTimerCreate("orphan_timer", ORPHAN_TIMEOUT, pdFALSE, (void *)0, orphan_timer_callback);
+
+    if (orphan_timer == NULL) {
+        ESP_LOGE(TAG, "Failed to create notification timer");
+        return;
+    }
+
+    // Start the timer when the system boots
+    if (xTimerStart(orphan_timer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start notification timer");
+    }
 
     // Infinite loop to prevent exiting app_main
     while (true) {
