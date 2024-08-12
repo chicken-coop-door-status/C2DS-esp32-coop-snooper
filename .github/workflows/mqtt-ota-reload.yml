@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.CONTROLLER_WORKFLOW_GITHUB_TOKEN }}
+          token: ${{ secrets.WORKFLOW_GITHUB_TOKEN }}
           submodules: recursive
 
       - name: Install git-crypt
@@ -21,7 +21,7 @@ jobs:
 
       - name: Unlock git-crypt
         run: |
-          echo "${{ secrets.GIT_CRYPT_SNOOPER_KEY }}" | base64 --decode > git-crypt-key
+          echo "${{ secrets.GIT_CRYPT_KEY }}" | base64 --decode > git-crypt-key
           git-crypt unlock git-crypt-key
           rm git-crypt-key
         working-directory: ${{ github.workspace }}
