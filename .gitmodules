@@ -38,3 +38,6 @@
 	path = components/gecl-telemetry-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-telemetry-manager
 	ignore = all
+[submodule "components/gecl-nvs-manager"]
+	path = components/gecl-nvs-manager
+	url = https://github.com/gamename-esp32-component-library/GECL-nvs-manager
