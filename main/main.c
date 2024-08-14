@@ -58,7 +58,9 @@ void orphan_timer_callback(TimerHandle_t xTimer) {
 // Function to reset the timer whenever a message is received
 void reset_orphan_timer(void) {
     if (xTimerReset(orphan_timer, 0) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to reset notification timer");
+        ESP_LOGE(TAG, "Orphan timer failed to reset");
+    } else {
+        ESP_LOGI(TAG, "Orphan timer reset successfully");
     }
 }
 
@@ -72,9 +74,6 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
 
     msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
     ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, msg_id);
-
-    msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, 0);
-    ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_TELEMETRY_REQUEST_TOPIC, msg_id);
 
     msg_id =
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
@@ -119,13 +118,13 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
     esp_mqtt_client_handle_t client = event->client;
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
         ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
-        reset_orphan_timer();
         // Handle the status response
         cJSON *json = cJSON_Parse(event->data);
         if (json == NULL) {
             ESP_LOGE(TAG, "Failed to parse JSON");
         } else {
             cJSON *state = cJSON_GetObjectItem(json, "LED");
+            reset_orphan_timer();
             if (cJSON_IsString(state)) {
                 ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
                 led_state_t led_state = convert_led_string_to_enum(state->valuestring);
