@@ -13,16 +13,6 @@
         }
     },
     "terminal.integrated.defaultProfile.osx": "MyCustomProfile",
-    "files.associations": {
-        "esp_event.h": "c",
-        "ota.h": "c",
-        "semphr.h": "c",
-        "cstdint": "c",
-        "mqtt.h": "c",
-        "gecl-wifi-manager.h": "c",
-        "gecl-versioning-manager.h": "c",
-        "freertos.h": "c"
-    },
     "files.exclude": {
         "components/gecl-time-sync-manager": true,
         "components/gecl-ota-manager": true,
