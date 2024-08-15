@@ -48,7 +48,7 @@ void squawk(void) {
 
 // Callback function for timer expiration
 void orphan_timer_callback(TimerHandle_t xTimer) {
-    ESP_LOGW(TAG, "No message received for 2 hours. Triggering notification.");
+    ESP_LOGE(TAG, "No message received for 2 hours. Triggering notification.");
 
     // Set LED to cyan and trigger squawk
     set_led(LED_FLASHING_CYAN);
