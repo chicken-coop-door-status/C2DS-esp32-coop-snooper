@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "freertos/timers.h"  // Include FreeRTOS timers header
+#include "freertos/timers.h" // Include FreeRTOS timers header
 #include "gecl-logger-manager.h"
 #include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
@@ -15,19 +15,19 @@
 #include "gecl-time-sync-manager.h"
 #include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
-#include "mbedtls/debug.h"  // Add this to include mbedtls debug functions
-#include "mp3.h"            // Include the mp3 header
+#include "mbedtls/debug.h" // Add this to include mbedtls debug functions
+#include "mp3.h"           // Include the mp3 header
 #include "nvs_flash.h"
 
-#define ORPHAN_TIMEOUT pdMS_TO_TICKS(7200000)  // 2 hours in milliseconds
+#define ORPHAN_TIMEOUT pdMS_TO_TICKS(7200000) // 2 hours in milliseconds
 
 static const char *TAG = "COOP_SNOOPER";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
-SemaphoreHandle_t audioSemaphore;   // Add semaphore handle for audio playback
-SemaphoreHandle_t timer_semaphore;  // Add semaphore handle timer for audio playback
+SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
+SemaphoreHandle_t timer_semaphore; // Add semaphore handle timer for audio playback
 
-TaskHandle_t ota_handler_task_handle = NULL;  // Task handle for OTA updating
+TaskHandle_t ota_handler_task_handle = NULL; // Task handle for OTA updating
 
 TimerHandle_t orphan_timer;
 
@@ -100,7 +100,7 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
             err = esp_mqtt_client_reconnect(client);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to reconnect MQTT client, retrying in %d seconds...", retry_delay_ms / 1000);
-                vTaskDelay(pdMS_TO_TICKS(retry_delay_ms));  // Delay for 5 seconds
+                vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
                 retry_count++;
             }
         } while (err != ESP_OK && retry_count < max_retries);
@@ -143,7 +143,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
                         squawk();
                     }
                     set_led(led_state);
-                    current_led_state = led_state;  // Update the current LED state
+                    current_led_state = led_state; // Update the current LED state
                 }
             } else {
                 ESP_LOGE(TAG, "JSON state item is not a string");
@@ -160,7 +160,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         if (ota_handler_task_handle != NULL) {
             eTaskState task_state = eTaskGetState(ota_handler_task_handle);
             if (task_state != eDeleted) {
-                char log_message[256];  // Adjust the size according to your needs
+                char log_message[256]; // Adjust the size according to your needs
                 snprintf(log_message, sizeof(log_message),
                          "OTA task is already running or not yet cleaned up, skipping OTA update. task_state=%d",
                          task_state);
@@ -266,6 +266,6 @@ void app_main(void) {
 
     // Infinite loop to prevent exiting app_main
     while (true) {
-        vTaskDelay(pdMS_TO_TICKS(1000));  // Delay to allow other tasks to run
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow other tasks to run
     }
 }

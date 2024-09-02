@@ -1,6 +1,6 @@
 {
     "editor.formatOnSave": true,
-    "clang-format.style": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 120 }",
+    "clang-format.style": "{ BasedOnStyle: LLVM, IndentWidth: 4, ColumnLimit: 120 }",
     "idf.adapterTargetName": "esp32c3",
     "sonarlint.pathToCompileCommands": "${workspaceFolder}/build/compile_commands.json",
     "terminal.integrated.profiles.osx": {
