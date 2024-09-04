@@ -40,10 +40,10 @@ extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
 #endif
 
 void squawk(void) {
-    set_audio_playback(true);
-    set_volume(1.0f);
-    set_gain(true);
-    enable_amplifier(true);
+    set_volume(1.0f);         // Set volume first
+    set_gain(true);           // Set gain
+    enable_amplifier(true);   // Enable the amplifier
+    set_audio_playback(true); // Start playback after everything is configured
 }
 
 // Callback function for timer expiration
@@ -51,7 +51,7 @@ void orphan_timer_callback(TimerHandle_t xTimer) {
     ESP_LOGE(TAG, "No message received for 2 hours. Triggering notification.");
 
     // Set LED to cyan and trigger squawk
-    set_led(LED_FLASHING_CYAN);
+    set_rgb_led_named_color("LED_BLINK_CYAN");
     squawk();
 }
 
@@ -124,29 +124,13 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
             ESP_LOGE(TAG, "Failed to parse JSON");
         } else {
             cJSON *state = cJSON_GetObjectItem(json, "LED");
-            reset_orphan_timer();
-            if (cJSON_IsString(state)) {
-                ESP_LOGI(TAG, "Parsed state: %s", state->valuestring);
-                led_state_t led_state = convert_led_string_to_enum(state->valuestring);
-                static led_state_t current_led_state = LED_OFF;
-                // Only set the LED state if it's not LED_FLASHING_GREEN,
-                // or if the current state is not already LED_FLASHING_GREEN.
-                // Only a reboot breaks out of the LED_FLASHING_GREEN state.
-                //
-                // TODO - Add a check for LED_FLASHING_GREEN longer than a certain time
-                //
-                if (led_state != LED_FLASHING_GREEN || current_led_state != LED_FLASHING_GREEN) {
-                    if (led_state == LED_FLASHING_RED || led_state == LED_FLASHING_BLUE ||
-                        led_state == LED_FLASHING_YELLOW || led_state == LED_FLASHING_CYAN ||
-                        led_state == LED_FLASHING_MAGENTA || led_state == LED_FLASHING_ORANGE) {
-                        // Squawk if the LED is flashing
-                        squawk();
-                    }
-                    set_led(led_state);
-                    current_led_state = led_state; // Update the current LED state
-                }
-            } else {
-                ESP_LOGE(TAG, "JSON state item is not a string");
+            const char *led_state = cJSON_GetStringValue(state);
+            assert(led_state != NULL);
+            set_rgb_led_named_color(led_state);
+
+            // Check if the led_state does not contain "GREEN" but contains "BLINK"
+            if (strstr(led_state, "GREEN") == NULL && strstr(led_state, "BLINK") != NULL) {
+                squawk(); // Call squawk if the condition is met
             }
             cJSON_Delete(json);
         }
@@ -176,7 +160,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
             // Clean up task handle if it has been deleted
             ota_handler_task_handle = NULL;
         }
-        set_led(LED_FLASHING_GREEN);
+        set_rgb_led_named_color("LED_BLINK_GREEN");
         xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
     } else {
         ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
@@ -227,9 +211,9 @@ void app_main(void) {
 
     esp_mqtt_client_handle_t client = init_mqtt(&config);
 
-    init_rgb_led(client);
+    init_rgb_led();
 
-    set_led(LED_FLASHING_WHITE);
+    set_rgb_led_named_color("LED_BLINK_WHITE");
 
     // Initialize audio semaphore
     audioSemaphore = xSemaphoreCreateBinary();
