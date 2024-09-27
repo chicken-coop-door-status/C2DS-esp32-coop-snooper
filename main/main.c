@@ -135,6 +135,10 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
 {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
     esp_mqtt_client_handle_t client = event->client;
+
+    // Reset the orphan timer whenever a message is received
+    reset_orphan_timer();
+
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0)
     {
         ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
