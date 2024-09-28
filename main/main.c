@@ -37,9 +37,13 @@ extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
 #elif defined(FARM_HOUSE)
 extern const uint8_t coop_snooper_farmhouse_certificate_pem[];
 extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
+#elif defined(TEST)
+extern const uint8_t coop_snooper_test_certificate_pem[];
+extern const uint8_t coop_snooper_test_private_pem_key[];
 #endif
 
-void squawk(void) {
+void squawk(void)
+{
     set_volume(1.0f);         // Set volume first
     set_gain(true);           // Set gain
     enable_amplifier(true);   // Enable the amplifier
@@ -47,7 +51,8 @@ void squawk(void) {
 }
 
 // Callback function for timer expiration
-void orphan_timer_callback(TimerHandle_t xTimer) {
+void orphan_timer_callback(TimerHandle_t xTimer)
+{
     ESP_LOGE(TAG, "No message received for 2 hours. Triggering notification.");
 
     // Set LED to cyan and trigger squawk
@@ -56,15 +61,20 @@ void orphan_timer_callback(TimerHandle_t xTimer) {
 }
 
 // Function to reset the timer whenever a message is received
-void reset_orphan_timer(void) {
-    if (xTimerReset(orphan_timer, 0) != pdPASS) {
+void reset_orphan_timer(void)
+{
+    if (xTimerReset(orphan_timer, 0) != pdPASS)
+    {
         ESP_LOGE(TAG, "Orphan timer failed to reset");
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "Orphan timer reset successfully");
     }
 }
 
-void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
+void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event)
+{
     esp_mqtt_client_handle_t client = event->client;
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_CONNECTED");
     int msg_id;
@@ -80,9 +90,11 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event) {
     ESP_LOGI(TAG, "Published initial status request, msg_id=%d", msg_id);
 }
 
-void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
+void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event)
+{
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DISCONNECTED");
-    if (ota_handler_task_handle != NULL) {
+    if (ota_handler_task_handle != NULL)
+    {
         vTaskDelete(ota_handler_task_handle);
         ota_handler_task_handle = NULL;
     }
@@ -94,56 +106,76 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event) {
     esp_mqtt_client_handle_t client = event->client;
 
     // Check if the network is connected before attempting reconnection
-    if (wifi_active()) {
-        do {
+    if (wifi_active())
+    {
+        do
+        {
             ESP_LOGI(TAG, "Attempting to reconnect, retry %d/%d", retry_count + 1, max_retries);
             err = esp_mqtt_client_reconnect(client);
-            if (err != ESP_OK) {
+            if (err != ESP_OK)
+            {
                 ESP_LOGE(TAG, "Failed to reconnect MQTT client, retrying in %d seconds...", retry_delay_ms / 1000);
                 vTaskDelay(pdMS_TO_TICKS(retry_delay_ms)); // Delay for 5 seconds
                 retry_count++;
             }
         } while (err != ESP_OK && retry_count < max_retries);
 
-        if (err != ESP_OK) {
+        if (err != ESP_OK)
+        {
             ESP_LOGE(TAG, "Failed to reconnect MQTT client after %d retries", retry_count);
         }
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "Network not connected, skipping MQTT reconnection");
     }
 }
 
-void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
+void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
+{
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
     esp_mqtt_client_handle_t client = event->client;
-    if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0) {
+
+    // Reset the orphan timer whenever a message is received
+    reset_orphan_timer();
+
+    if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0)
+    {
         ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
         // Handle the status response
         cJSON *json = cJSON_Parse(event->data);
-        if (json == NULL) {
+        if (json == NULL)
+        {
             ESP_LOGE(TAG, "Failed to parse JSON");
-        } else {
+        }
+        else
+        {
             cJSON *state = cJSON_GetObjectItem(json, "LED");
             const char *led_state = cJSON_GetStringValue(state);
             assert(led_state != NULL);
             set_rgb_led_named_color(led_state);
 
             // Check if the led_state does not contain "GREEN" but contains "BLINK"
-            if (strstr(led_state, "GREEN") == NULL && strstr(led_state, "BLINK") != NULL) {
+            if (strstr(led_state, "GREEN") == NULL && strstr(led_state, "BLINK") != NULL)
+            {
                 squawk(); // Call squawk if the condition is met
             }
             cJSON_Delete(json);
         }
-    } else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0) {
+    }
+    else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0)
+    {
         ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
         cJSON *ota_root = cJSON_CreateObject();
         cJSON_AddStringToObject(ota_root, device_name, "OTA update requested");
         char const *ota_json_string = cJSON_Print(ota_root);
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, ota_json_string, 0, 0, 0);
         cJSON_Delete(ota_root);
-        if (ota_handler_task_handle != NULL) {
+        if (ota_handler_task_handle != NULL)
+        {
             eTaskState task_state = eTaskGetState(ota_handler_task_handle);
-            if (task_state != eDeleted) {
+            if (task_state != eDeleted)
+            {
                 char log_message[256]; // Adjust the size according to your needs
                 snprintf(log_message, sizeof(log_message),
                          "OTA task is already running or not yet cleaned up, skipping OTA update. task_state=%d",
@@ -162,26 +194,35 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event) {
         }
         set_rgb_led_named_color("LED_BLINK_GREEN");
         xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
-    } else {
+    }
+    else
+    {
         ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
     }
 }
 
-void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event) {
+void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event)
+{
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_ERROR");
-    if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
+    if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS)
+    {
         ESP_LOGI(TAG, "Last ESP error code: 0x%x", event->error_handle->esp_tls_last_esp_err);
         ESP_LOGI(TAG, "Last TLS stack error code: 0x%x", event->error_handle->esp_tls_stack_err);
         ESP_LOGI(TAG, "Last TLS library error code: 0x%x", event->error_handle->esp_tls_cert_verify_flags);
-    } else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+    }
+    else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
+    {
         ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
     }
     esp_restart();
 }
 
-void app_main(void) {
+void app_main(void)
+{
 #ifdef TENNIS_HOUSE
     printf("Configuration: TENNIS_HOUSE\n");
     static const char *LOCATION = "Tennis House";
@@ -192,6 +233,11 @@ void app_main(void) {
     static const char *LOCATION = "Farm House";
     const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
     const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
+#elif defined(TEST)
+    printf("Configuration: TEST\n");
+    static const char *LOCATION = "Test";
+    const uint8_t *cert = coop_snooper_test_certificate_pem;
+    const uint8_t *key = coop_snooper_test_private_pem_key;
 #else
     printf("Configuration: UNKNOWN\n");
 #endif
@@ -217,13 +263,15 @@ void app_main(void) {
 
     // Initialize audio semaphore
     audioSemaphore = xSemaphoreCreateBinary();
-    if (audioSemaphore == NULL) {
+    if (audioSemaphore == NULL)
+    {
         ESP_LOGE(TAG, "Failed to create audio semaphore");
         return;
     }
 
     timer_semaphore = xSemaphoreCreateBinary();
-    if (timer_semaphore == NULL) {
+    if (timer_semaphore == NULL)
+    {
         ESP_LOGE(TAG, "Failed to create timer semaphore");
         return;
     }
@@ -238,18 +286,21 @@ void app_main(void) {
     // Create an orphan timer to trigger a notification if no message is received for 2 hours
     orphan_timer = xTimerCreate("orphan_timer", ORPHAN_TIMEOUT, pdFALSE, (void *)0, orphan_timer_callback);
 
-    if (orphan_timer == NULL) {
+    if (orphan_timer == NULL)
+    {
         ESP_LOGE(TAG, "Failed to create notification timer");
         return;
     }
 
     // Start the timer when the system boots
-    if (xTimerStart(orphan_timer, 0) != pdPASS) {
+    if (xTimerStart(orphan_timer, 0) != pdPASS)
+    {
         ESP_LOGE(TAG, "Failed to start notification timer");
     }
 
     // Infinite loop to prevent exiting app_main
-    while (true) {
+    while (true)
+    {
         vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow other tasks to run
     }
 }
