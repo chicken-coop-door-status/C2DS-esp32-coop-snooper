@@ -193,7 +193,10 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
             ota_handler_task_handle = NULL;
         }
         set_rgb_led_named_color("LED_BLINK_GREEN");
+        ESP_LOGI(TAG, "Starting OTA update task. Data length: %d", event->data_len);
         xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
+        // If the above task aborts, ask for status so we reset the LED color
+        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
     }
     else
     {
