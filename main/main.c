@@ -27,7 +27,7 @@ const char *device_name = CONFIG_WIFI_HOSTNAME;
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore; // Add semaphore handle timer for audio playback
 
-TaskHandle_t ota_handler_task_handle = NULL; // Task handle for OTA updating
+TaskHandle_t ota_task_handle = NULL; // Task handle for OTA updating
 
 TimerHandle_t orphan_timer;
 
@@ -93,10 +93,10 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event)
 void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event)
 {
     ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DISCONNECTED");
-    if (ota_handler_task_handle != NULL)
+    if (ota_task_handle != NULL)
     {
-        vTaskDelete(ota_handler_task_handle);
-        ota_handler_task_handle = NULL;
+        vTaskDelete(ota_task_handle);
+        ota_task_handle = NULL;
     }
     // Reconnect logic
     int retry_count = 0;
@@ -171,9 +171,10 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
         char const *ota_json_string = cJSON_Print(ota_root);
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, ota_json_string, 0, 0, 0);
         cJSON_Delete(ota_root);
-        if (ota_handler_task_handle != NULL)
+
+        if (ota_task_handle != NULL)
         {
-            eTaskState task_state = eTaskGetState(ota_handler_task_handle);
+            eTaskState task_state = eTaskGetState(ota_task_handle);
             if (task_state != eDeleted)
             {
                 char log_message[256]; // Adjust the size according to your needs
@@ -190,13 +191,54 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
                 return;
             }
             // Clean up task handle if it has been deleted
-            ota_handler_task_handle = NULL;
+            ota_task_handle = NULL;
         }
+
+        // Parse the message and get any URL associated with our MAC address
+        assert(event->data != NULL);
+        assert(event->data_len > 0);
+
+        char mac_address[18];
+        get_burned_in_mac_address(mac_address);
+        ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
+
+        cJSON *root = cJSON_Parse(event->data);
+        cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
+        const char *host_key_value = cJSON_GetStringValue(host_key);
+
+        if (!host_key || !host_key_value)
+        {
+            ESP_LOGE(TAG, "Invalid or missing '%s' key in JSON", mac_address);
+            cJSON_Delete(root); // Free JSON object
+            return;
+        }
+
+        // Allocate memory for the URL string
+        size_t url_len = strlen(host_key_value);
+        char *ota_url = malloc(url_len + 1); // +1 for null terminator
+        if (ota_url == NULL)
+        {
+            ESP_LOGE(TAG, "Failed to allocate memory for OTA URL");
+            return; // Exit if allocation fails
+        }
+
+        // Copy the URL string and ensure it's null-terminated
+        strncpy(ota_url, host_key_value, url_len);
+        ota_url[url_len] = '\0'; // Manually set the null terminator
+
         set_rgb_led_named_color("LED_BLINK_GREEN");
-        ESP_LOGI(TAG, "Starting OTA update task. Data length: %d", event->data_len);
-        xTaskCreate(&ota_handler_task, "ota_task", 8192, event, 5, &ota_handler_task_handle);
-        // If the above task aborts, ask for status so we reset the LED color
-        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
+
+        // Pass the allocated URL string to the OTA task
+        if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)ota_url, 5, &ota_task_handle) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to create OTA task.");
+            free(ota_url);     // Free the allocated memory if task creation fails
+            vTaskDelete(NULL); // Abort if task creation fails
+            // If the above task aborts, ask for status so we reset the LED color
+            esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
+        }
+
+        cJSON_Delete(root); // Free the JSON object
     }
     else
     {

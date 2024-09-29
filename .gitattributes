@@ -6,3 +6,4 @@ Kconfig filter=git-crypt diff=git-crypt
 sdkconfig filter=git-crypt diff=git-crypt
 sdkconfig.* filter=git-crypt diff=git-crypt
 test/* filter=git-crypt diff=git-crypt
+scripts/* filter=git-crypt diff=git-crypt
