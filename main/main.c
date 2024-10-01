@@ -312,8 +312,8 @@ void app_main(void)
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
 
-    init_telemetry_manager(device_name, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC,
-                           CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
+    // init_telemetry_manager(device_name, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC,
+    //                        CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
 
     // Create an orphan timer to trigger a notification if no message is received for 2 hours
     orphan_timer = xTimerCreate("orphan_timer", ORPHAN_TIMEOUT, pdFALSE, (void *)0, orphan_timer_callback);
