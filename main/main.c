@@ -29,7 +29,7 @@ SemaphoreHandle_t timer_semaphore; // Add semaphore handle timer for audio playb
 
 TaskHandle_t ota_task_handle = NULL; // Task handle for OTA updating
 
-TimerHandle_t orphan_timer;
+TimerHandle_t orphan_timer = NULL;
 
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
@@ -166,12 +166,6 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
     else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0)
     {
         ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
-        cJSON *ota_root = cJSON_CreateObject();
-        cJSON_AddStringToObject(ota_root, device_name, "OTA update requested");
-        char const *ota_json_string = cJSON_Print(ota_root);
-        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, ota_json_string, 0, 0, 0);
-        cJSON_Delete(ota_root);
-
         if (ota_task_handle != NULL)
         {
             eTaskState task_state = eTaskGetState(ota_task_handle);
@@ -183,11 +177,6 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
                          task_state);
 
                 ESP_LOGW(TAG, "%s", log_message);
-                cJSON *root = cJSON_CreateObject();
-                cJSON_AddStringToObject(root, device_name, log_message);
-                char const *json_string = cJSON_Print(root);
-                esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_OTA_PROGRESS_TOPIC, json_string, 0, 0, 0);
-                cJSON_Delete(root);
                 return;
             }
             // Clean up task handle if it has been deleted
@@ -325,8 +314,6 @@ void app_main(void)
 
     init_telemetry_manager(device_name, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC,
                            CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
-
-    init_cloud_logger(client, CONFIG_MQTT_PUBLISH_LOG_TOPIC);
 
     // Create an orphan timer to trigger a notification if no message is received for 2 hours
     orphan_timer = xTimerCreate("orphan_timer", ORPHAN_TIMEOUT, pdFALSE, (void *)0, orphan_timer_callback);
