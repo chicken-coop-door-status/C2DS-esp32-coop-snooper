@@ -5,13 +5,11 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "freertos/timers.h" // Include FreeRTOS timers header
-#include "gecl-logger-manager.h"
 #include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
 #include "gecl-nvs-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
-#include "gecl-telemetry-manager.h"
 #include "gecl-time-sync-manager.h"
 #include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
@@ -28,7 +26,6 @@ SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
 SemaphoreHandle_t timer_semaphore; // Add semaphore handle timer for audio playback
 
 TaskHandle_t ota_task_handle = NULL; // Task handle for OTA updating
-
 TimerHandle_t orphan_timer = NULL;
 
 #ifdef TENNIS_HOUSE
@@ -122,116 +119,134 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event)
 
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG, "Failed to reconnect MQTT client after %d retries", retry_count);
+            ESP_LOGE(TAG, "Failed to reconnect MQTT client after %d retries. Restarting", retry_count);
+            esp_restart();
         }
     }
     else
     {
         ESP_LOGE(TAG, "Network not connected, skipping MQTT reconnection");
+        esp_restart();
+    }
+}
+
+void custom_handle_mqtt_event_subscribe(esp_mqtt_event_handle_t event)
+{
+    // Handle the status response
+    cJSON *json = cJSON_Parse(event->data);
+    if (json == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON");
+    }
+    else
+    {
+        cJSON *state = cJSON_GetObjectItem(json, "LED");
+        const char *led_state = cJSON_GetStringValue(state);
+        assert(led_state != NULL);
+        set_rgb_led_named_color(led_state);
+
+        // Check if the led_state does not contain "GREEN" but contains "BLINK"
+        if (strstr(led_state, "GREEN") == NULL && strstr(led_state, "BLINK") != NULL)
+        {
+            squawk(); // Call squawk if the condition is met
+        }
+        cJSON_Delete(json);
+    }
+}
+
+bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
+{
+    bool success = false;
+    char mac_address[18];
+    cJSON *root = cJSON_Parse(event->data);
+
+    get_burned_in_mac_address(mac_address);
+    ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
+
+    cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
+    const char *host_key_value = cJSON_GetStringValue(host_key);
+
+    if (!host_key || !host_key_value)
+    {
+        ESP_LOGE(TAG, "Invalid or missing '%s' key in JSON", mac_address);
+    }
+    else
+    {
+        size_t url_len = strlen(host_key_value);
+        strncpy(ota_url, host_key_value, url_len);
+        ota_url[url_len] = '\0'; // Manually set the null terminator
+        success = true;
+    }
+
+    cJSON_Delete(root); // Free JSON object
+    return success;
+}
+
+void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
+{
+    if (ota_task_handle != NULL)
+    {
+        eTaskState task_state = eTaskGetState(ota_task_handle);
+        if (task_state != eDeleted)
+        {
+            char log_message[256]; // Adjust the size according to your needs
+            snprintf(log_message, sizeof(log_message),
+                     "OTA task is already running or not yet cleaned up, skipping OTA update. task_state=%d",
+                     task_state);
+
+            ESP_LOGW(TAG, "%s", log_message);
+            return;
+        }
+        else
+        {
+            // Clean up task handle if it has been deleted
+            ota_task_handle = NULL;
+        }
+    }
+
+    // Parse the message and get any URL associated with our MAC address
+    assert(event->data != NULL);
+    assert(event->data_len > 0);
+
+    char ota_url[512];
+
+    if (!extract_ota_url_from_event(event, ota_url))
+    {
+        ESP_LOGE(TAG, "Failed to extract OTA URL from event data");
+        return;
+    }
+
+    set_rgb_led_named_color("LED_BLINK_GREEN");
+
+    // Pass the allocated URL string to the OTA task
+    if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)ota_url, 5, &ota_task_handle) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create OTA task.");
+        esp_mqtt_client_handle_t client = event->client;
+        // If the above task aborts, ask for status so we reset the LED color
+        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
     }
 }
 
 void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
 {
-    ESP_LOGI(TAG, "Custom handler: MQTT_EVENT_DATA");
-    esp_mqtt_client_handle_t client = event->client;
+
+    ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
 
     // Reset the orphan timer whenever a message is received
     reset_orphan_timer();
 
     if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC, event->topic_len) == 0)
     {
-        ESP_LOGW(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_STATUS_TOPIC);
-        // Handle the status response
-        cJSON *json = cJSON_Parse(event->data);
-        if (json == NULL)
-        {
-            ESP_LOGE(TAG, "Failed to parse JSON");
-        }
-        else
-        {
-            cJSON *state = cJSON_GetObjectItem(json, "LED");
-            const char *led_state = cJSON_GetStringValue(state);
-            assert(led_state != NULL);
-            set_rgb_led_named_color(led_state);
-
-            // Check if the led_state does not contain "GREEN" but contains "BLINK"
-            if (strstr(led_state, "GREEN") == NULL && strstr(led_state, "BLINK") != NULL)
-            {
-                squawk(); // Call squawk if the condition is met
-            }
-            cJSON_Delete(json);
-        }
+        custom_handle_mqtt_event_subscribe(event);
     }
     else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0)
     {
-        ESP_LOGI(TAG, "Received topic %s", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC);
-        if (ota_task_handle != NULL)
-        {
-            eTaskState task_state = eTaskGetState(ota_task_handle);
-            if (task_state != eDeleted)
-            {
-                char log_message[256]; // Adjust the size according to your needs
-                snprintf(log_message, sizeof(log_message),
-                         "OTA task is already running or not yet cleaned up, skipping OTA update. task_state=%d",
-                         task_state);
-
-                ESP_LOGW(TAG, "%s", log_message);
-                return;
-            }
-            // Clean up task handle if it has been deleted
-            ota_task_handle = NULL;
-        }
-
-        // Parse the message and get any URL associated with our MAC address
-        assert(event->data != NULL);
-        assert(event->data_len > 0);
-
-        char mac_address[18];
-        get_burned_in_mac_address(mac_address);
-        ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
-
-        cJSON *root = cJSON_Parse(event->data);
-        cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
-        const char *host_key_value = cJSON_GetStringValue(host_key);
-
-        if (!host_key || !host_key_value)
-        {
-            ESP_LOGE(TAG, "Invalid or missing '%s' key in JSON", mac_address);
-            cJSON_Delete(root); // Free JSON object
-            return;
-        }
-
-        // Allocate memory for the URL string
-        size_t url_len = strlen(host_key_value);
-        char *ota_url = malloc(url_len + 1); // +1 for null terminator
-        if (ota_url == NULL)
-        {
-            ESP_LOGE(TAG, "Failed to allocate memory for OTA URL");
-            return; // Exit if allocation fails
-        }
-
-        // Copy the URL string and ensure it's null-terminated
-        strncpy(ota_url, host_key_value, url_len);
-        ota_url[url_len] = '\0'; // Manually set the null terminator
-
-        set_rgb_led_named_color("LED_BLINK_GREEN");
-
-        // Pass the allocated URL string to the OTA task
-        if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)ota_url, 5, &ota_task_handle) != pdPASS)
-        {
-            ESP_LOGE(TAG, "Failed to create OTA task.");
-            free(ota_url);     // Free the allocated memory if task creation fails
-            vTaskDelete(NULL); // Abort if task creation fails
-            // If the above task aborts, ask for status so we reset the LED color
-            esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
-        }
-
-        cJSON_Delete(root); // Free the JSON object
+        custom_handle_mqtt_event_ota(event);
     }
     else
     {
-        ESP_LOGW(TAG, "Received topic %.*s", event->topic_len, event->topic);
+        ESP_LOGW(TAG, "Un-Handled topic %.*s", event->topic_len, event->topic);
     }
 }
 
@@ -274,6 +289,7 @@ void app_main(void)
     const uint8_t *key = coop_snooper_test_private_pem_key;
 #else
     printf("Configuration: UNKNOWN\n");
+    return;
 #endif
 
     init_nvs();
@@ -311,9 +327,6 @@ void app_main(void)
     }
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
-
-    // init_telemetry_manager(device_name, client, CONFIG_MQTT_PUBLISH_TELEMETRY_TOPIC,
-    //                        CONFIG_MQTT_TELEMETRY_TRANSMIT_INTERVAL_MINUTES);
 
     // Create an orphan timer to trigger a notification if no message is received for 2 hours
     orphan_timer = xTimerCreate("orphan_timer", ORPHAN_TIMEOUT, pdFALSE, (void *)0, orphan_timer_callback);
