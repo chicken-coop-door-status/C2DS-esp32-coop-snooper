@@ -159,6 +159,9 @@ jobs:
             --topic "${{secrets.MQTT_OTA_TOPIC}}" \
             --cli-binary-format raw-in-base64-out \
             --payload '{"${{ secrets.TENNIS_WIFI_MAC_ADDRESS }}": "${{ env.TENNIS_URL_PATH }}", 
-                        "${{ secrets.FARM_WIFI_MAC_ADDRESS }}": "${{ env.FARM_URL_PATH }}",
                         "${{ secrets.TEST_WIFI_MAC_ADDRESS }}": "${{ env.TEST_URL_PATH }}"}'
         working-directory: ${{ github.workspace }}
+
+#
+#                        "${{ secrets.FARM_WIFI_MAC_ADDRESS }}": "${{ env.FARM_URL_PATH }}",
+#
