@@ -12,10 +12,10 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.2.3
+    version: 5.2.2
 direct_dependencies:
 - chmorgan/esp-libhelix-mp3
 - idf
-manifest_hash: 3c81a157c66c12b91c5518cf43a5d89237568a394154341569fa8833c5a282ce
+manifest_hash: 68c716595540cbf18f9bfced67f7bfe4071c763c2f4d467300e05fa5ef5b5c72
 target: esp32c3
 version: 2.0.0

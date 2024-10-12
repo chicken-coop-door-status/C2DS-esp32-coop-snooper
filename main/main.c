@@ -1,17 +1,16 @@
 #include "cJSON.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "freertos/timers.h" // Include FreeRTOS timers header
-#include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
 #include "gecl-nvs-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
 #include "gecl-time-sync-manager.h"
-#include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
 #include "mbedtls/debug.h" // Add this to include mbedtls debug functions
 #include "mp3.h"           // Include the mp3 header
@@ -38,6 +37,20 @@ extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
 extern const uint8_t coop_snooper_test_certificate_pem[];
 extern const uint8_t coop_snooper_test_private_pem_key[];
 #endif
+
+void get_mac_address(char *mac_str)
+{
+    uint8_t mac[6];
+    esp_err_t ret = esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    if (ret == ESP_OK)
+    {
+        snprintf(mac_str, 18, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+    else
+    {
+        snprintf(mac_str, 18, "ERROR");
+    }
+}
 
 void squawk(void)
 {
@@ -160,7 +173,7 @@ bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
     char mac_address[18];
     cJSON *root = cJSON_Parse(event->data);
 
-    get_burned_in_mac_address(mac_address);
+    get_mac_address(mac_address);
     ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
 
     cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
