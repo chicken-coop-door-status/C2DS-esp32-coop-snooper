@@ -18,7 +18,7 @@
 
 #define ORPHAN_TIMEOUT pdMS_TO_TICKS(7200000) // 2 hours in milliseconds
 
-static const char *TAG = "COOP_SNOOPER";
+static const char *TAG = "COOP_COP_EGG";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
