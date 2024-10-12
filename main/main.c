@@ -291,7 +291,6 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event)
 
 void app_main(void)
 {
-
     init_nvs();
 
     init_wifi();
