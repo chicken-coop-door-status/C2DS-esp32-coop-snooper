@@ -59,8 +59,6 @@ elseif(CONFIG_TEST)
     set(CERT_SOURCE "certs/coop_snooper_test_certificate_pem.c")
     set(KEY_SOURCE "certs/coop_snooper_test_private_pem_key.c")
     message(STATUS "------------------------>Configuration: TEST")
-else()
-    message(STATUS "++++++++++++++++++++++++Configuration: UNKNOWN+++++++++++++++++++++++++")
 endif()
 
 set(AWS_SOURCE "certs/AmazonRootCA1_pem.c")
@@ -90,10 +88,6 @@ idf_component_register(
         gecl-wifi-manager
         gecl-rgb-led-manager
         gecl-time-sync-manager
-        gecl-logger-manager
         gecl-mqtt-manager
-        gecl-misc-util-manager
-        gecl-versioning-manager
-        gecl-telemetry-manager
         gecl-nvs-manager
 )

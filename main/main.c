@@ -1,17 +1,16 @@
 #include "cJSON.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "freertos/timers.h" // Include FreeRTOS timers header
-#include "gecl-misc-util-manager.h"
 #include "gecl-mqtt-manager.h"
 #include "gecl-nvs-manager.h"
 #include "gecl-ota-manager.h"
 #include "gecl-rgb-led-manager.h"
 #include "gecl-time-sync-manager.h"
-#include "gecl-versioning-manager.h"
 #include "gecl-wifi-manager.h"
 #include "mbedtls/debug.h" // Add this to include mbedtls debug functions
 #include "mp3.h"           // Include the mp3 header
@@ -31,13 +30,33 @@ TimerHandle_t orphan_timer = NULL;
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
+const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
+const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
 #elif defined(FARM_HOUSE)
 extern const uint8_t coop_snooper_farmhouse_certificate_pem[];
 extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
+const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
+const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
 #elif defined(TEST)
 extern const uint8_t coop_snooper_test_certificate_pem[];
 extern const uint8_t coop_snooper_test_private_pem_key[];
+const uint8_t *cert = coop_snooper_test_certificate_pem;
+const uint8_t *key = coop_snooper_test_private_pem_key;
 #endif
+
+void get_mac_address(char *mac_str)
+{
+    uint8_t mac[6];
+    esp_err_t ret = esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    if (ret == ESP_OK)
+    {
+        snprintf(mac_str, 18, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+    else
+    {
+        snprintf(mac_str, 18, "ERROR");
+    }
+}
 
 void squawk(void)
 {
@@ -50,11 +69,8 @@ void squawk(void)
 // Callback function for timer expiration
 void orphan_timer_callback(TimerHandle_t xTimer)
 {
-    ESP_LOGE(TAG, "No message received for 2 hours. Triggering notification.");
-
-    // Set LED to cyan and trigger squawk
-    set_rgb_led_named_color("LED_BLINK_CYAN");
-    squawk();
+    ESP_LOGE(TAG, "No status message received for 2 hours. Triggering reboot!");
+    esp_restart();
 }
 
 // Function to reset the timer whenever a message is received
@@ -160,7 +176,7 @@ bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
     char mac_address[18];
     cJSON *root = cJSON_Parse(event->data);
 
-    get_burned_in_mac_address(mac_address);
+    get_mac_address(mac_address);
     ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
 
     cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
@@ -272,26 +288,6 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event)
 
 void app_main(void)
 {
-#ifdef TENNIS_HOUSE
-    printf("Configuration: TENNIS_HOUSE\n");
-    static const char *LOCATION = "Tennis House";
-    const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
-    const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
-#elif defined(FARM_HOUSE)
-    printf("Configuration: FARM_HOUSE\n");
-    static const char *LOCATION = "Farm House";
-    const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
-    const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
-#elif defined(TEST)
-    printf("Configuration: TEST\n");
-    static const char *LOCATION = "Test";
-    const uint8_t *cert = coop_snooper_test_certificate_pem;
-    const uint8_t *key = coop_snooper_test_private_pem_key;
-#else
-    printf("Configuration: UNKNOWN\n");
-    return;
-#endif
-
     init_nvs();
 
     init_wifi();

@@ -6,10 +6,6 @@
 	path = components/gecl-ota-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-ota-manager
 	ignore = all
-[submodule "components/gecl-logger-manager"]
-	path = components/gecl-logger-manager
-	url = https://github.com/gamename-esp32-component-library/GECL-logger-manager
-	ignore = all
 [submodule "components/gecl-rgb-led-manager"]
 	path = components/gecl-rgb-led-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-rgb-led-manager
@@ -21,22 +17,6 @@
 [submodule "components/gecl-mqtt-manager"]
 	path = components/gecl-mqtt-manager
 	url = https://github.com/gamename-esp32-component-library/GECL-mqtt-manager
-	ignore = all
-[submodule "components/gecl-misc-util-manager"]
-	path = components/gecl-misc-util-manager
-	url = https://github.com/gamename-esp32-component-library/GECL-misc-util-manager
-	ignore = all
-[submodule "components/gecl-heartbeat-manager"]
-	path = components/gecl-heartbeat-manager
-	url = https://github.com/gamename-esp32-component-library/GECL-heartbeat-manager
-	ignore = all
-[submodule "components/gecl-versioning-manager"]
-	path = components/gecl-versioning-manager
-	url = https://github.com/gamename-esp32-component-library/GECL-versioning-manager
-	ignore = all
-[submodule "components/gecl-telemetry-manager"]
-	path = components/gecl-telemetry-manager
-	url = https://github.com/gamename-esp32-component-library/GECL-telemetry-manager
 	ignore = all
 [submodule "components/gecl-nvs-manager"]
 	path = components/gecl-nvs-manager
