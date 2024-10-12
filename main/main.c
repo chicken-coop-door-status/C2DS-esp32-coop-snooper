@@ -18,7 +18,7 @@
 
 #define ORPHAN_TIMEOUT pdMS_TO_TICKS(7200000) // 2 hours in milliseconds
 
-static const char *TAG = "COOP_SNOOPER";
+static const char *TAG = "COOP_COP_EGG";
 const char *device_name = CONFIG_WIFI_HOSTNAME;
 
 SemaphoreHandle_t audioSemaphore;  // Add semaphore handle for audio playback
@@ -50,7 +50,7 @@ void get_mac_address(char *mac_str)
     esp_err_t ret = esp_read_mac(mac, ESP_MAC_WIFI_STA);
     if (ret == ESP_OK)
     {
-        snprintf(mac_str, 18, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        snprintf(mac_str, 18, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
     else
     {
@@ -177,7 +177,7 @@ bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
     cJSON *root = cJSON_Parse(event->data);
 
     get_mac_address(mac_address);
-    ESP_LOGI(TAG, "Burned-In MAC Address: %s\n", mac_address);
+    ESP_LOGW(TAG, "Burned-In MAC Address: %s", mac_address);
 
     cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
     const char *host_key_value = cJSON_GetStringValue(host_key);
