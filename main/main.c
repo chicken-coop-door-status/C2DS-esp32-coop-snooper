@@ -30,12 +30,18 @@ TimerHandle_t orphan_timer = NULL;
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
+const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
+const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
 #elif defined(FARM_HOUSE)
 extern const uint8_t coop_snooper_farmhouse_certificate_pem[];
 extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
+const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
+const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
 #elif defined(TEST)
 extern const uint8_t coop_snooper_test_certificate_pem[];
 extern const uint8_t coop_snooper_test_private_pem_key[];
+const uint8_t *cert = coop_snooper_test_certificate_pem;
+const uint8_t *key = coop_snooper_test_private_pem_key;
 #endif
 
 void get_mac_address(char *mac_str)
@@ -285,25 +291,6 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event)
 
 void app_main(void)
 {
-#ifdef TENNIS_HOUSE
-    printf("Configuration: TENNIS_HOUSE\n");
-    static const char *LOCATION = "Tennis House";
-    const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
-    const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
-#elif defined(FARM_HOUSE)
-    printf("Configuration: FARM_HOUSE\n");
-    static const char *LOCATION = "Farm House";
-    const uint8_t *cert = coop_snooper_farmhouse_certificate_pem;
-    const uint8_t *key = coop_snooper_farmhouse_private_pem_key;
-#elif defined(TEST)
-    printf("Configuration: TEST\n");
-    static const char *LOCATION = "Test";
-    const uint8_t *cert = coop_snooper_test_certificate_pem;
-    const uint8_t *key = coop_snooper_test_private_pem_key;
-#else
-    printf("Configuration: UNKNOWN\n");
-    return;
-#endif
 
     init_nvs();
 
