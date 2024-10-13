@@ -60,6 +60,41 @@ jobs:
             git push origin $VERSION_TAG
           fi
 
+      # CHARLIE
+      - name: Build for Charlie House
+        run: |
+          docker run --rm \
+            -v $PWD:/workspace \
+            -w /workspace \
+            -e COMPONENT_KCONFIGS_DIR=/workspace/components \
+            -e VERSION_TAG=${{ env.VERSION_TAG }} \
+            ${{ secrets.DOCKER_USER_NAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && git config --global --add safe.directory /workspace && idf.py -D SDKCONFIG=sdkconfig.charlie build"
+        working-directory: ${{ github.workspace }}
+
+      - name: Append Charlie House S3/URL path to environment
+        run: |
+          TENNIS_S3_IMAGE=coop-snooper/charlie-house/${{ env.VERSION_TAG}}/firmware.bin
+          echo "TENNIS_S3_PATH=s3://${{ secrets.AWS_S3_OTA_BUCKET }}/${CHARLIE_S3_IMAGE}" >> $GITHUB_ENV
+          echo "TENNIS_URL_PATH=https://${{ secrets.AWS_S3_OTA_BUCKET }}.s3.${{ secrets.AWS_REGION }}.amazonaws.com/${CHARLIE_S3_IMAGE}" >> $GITHUB_ENV
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload Charlie House image to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        run: |
+          aws s3 cp build/firmware.bin ${{ env.CHARLIE_S3_PATH }}
+        working-directory: ${{ github.workspace }}
+
+      - name: Clean build directory
+        run: |
+          docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USER_NAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
+        working-directory: ${{ github.workspace }}
+
+      # TENNIS
       - name: Build for Tennis House
         run: |
           docker run --rm \
@@ -93,6 +128,7 @@ jobs:
             /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
         working-directory: ${{ github.workspace }}
 
+      # FARM
       - name: Build for Farm House
         run: |
           docker run --rm \
@@ -120,6 +156,13 @@ jobs:
           aws s3 cp build/firmware.bin ${{ env.FARM_S3_PATH }}
         working-directory: ${{ github.workspace }}
 
+      - name: Clean build directory
+        run: |
+          docker run --rm -v $PWD:/workspace -w /workspace ${{ secrets.DOCKER_USER_NAME }}/esp-idf:latest \
+            /bin/bash -c ". /opt/esp-idf/export.sh && idf.py fullclean"
+        working-directory: ${{ github.workspace }}
+
+      # TEST
       - name: Build for Test
         run: |
           docker run --rm \
@@ -147,6 +190,7 @@ jobs:
           aws s3 cp build/firmware.bin ${{ env.TEST_S3_PATH }}
         working-directory: ${{ github.workspace }}
 
+      # PUBLISH
       - name: Publish MQTT message
         env:
           AWS_IOT_ENDPOINT_URL: "https://${{ secrets.AWS_IOT_ENDPOINT }}"
@@ -159,6 +203,7 @@ jobs:
             --topic "${{secrets.MQTT_OTA_TOPIC}}" \
             --cli-binary-format raw-in-base64-out \
             --payload '{"${{ secrets.TENNIS_WIFI_MAC_ADDRESS }}": "${{ env.TENNIS_URL_PATH }}", 
+                        "${{ secrets.CHARLIE_WIFI_MAC_ADDRESS }}": "${{ env.CHARLIE_URL_PATH }}",
                         "${{ secrets.TEST_WIFI_MAC_ADDRESS }}": "${{ env.TEST_URL_PATH }}"}'
         working-directory: ${{ github.workspace }}
 
