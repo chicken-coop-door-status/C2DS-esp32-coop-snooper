@@ -225,8 +225,10 @@ void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
     assert(event->data_len > 0);
 
     char ota_url[512];
+    ota_config_t ota_config;
+    ota_config.mqtt_client = event->client;
 
-    if (!extract_ota_url_from_event(event, ota_url))
+    if (!extract_ota_url_from_event(event, ota_config.url))
     {
         ESP_LOGE(TAG, "Failed to extract OTA URL from event data");
         return;
@@ -235,12 +237,11 @@ void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
     set_rgb_led_named_color("LED_BLINK_GREEN");
 
     // Pass the allocated URL string to the OTA task
-    if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)ota_url, 5, &ota_task_handle) != pdPASS)
+    if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)&ota_config, 5, &ota_task_handle) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create OTA task.");
-        esp_mqtt_client_handle_t client = event->client;
         // If the above task aborts, ask for status so we reset the LED color
-        esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
+        esp_mqtt_client_publish(ota_config.mqtt_client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
     }
 }
 
