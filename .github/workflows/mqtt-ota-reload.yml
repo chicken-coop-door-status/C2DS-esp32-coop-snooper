@@ -74,7 +74,7 @@ jobs:
 
       - name: Append Charlie House S3/URL path to environment
         run: |
-          TENNIS_S3_IMAGE=coop-snooper/charlie-house/${{ env.VERSION_TAG}}/firmware.bin
+          CHARLIE_S3_IMAGE=coop-snooper/charlie-house/${{ env.VERSION_TAG}}/firmware.bin
           echo "CHARLIE_S3_PATH=s3://${{ secrets.AWS_S3_OTA_BUCKET }}/${CHARLIE_S3_IMAGE}" >> $GITHUB_ENV
           echo "CHARLIE_URL_PATH=https://${{ secrets.AWS_S3_OTA_BUCKET }}.s3.${{ secrets.AWS_REGION }}.amazonaws.com/${CHARLIE_S3_IMAGE}" >> $GITHUB_ENV
         working-directory: ${{ github.workspace }}
