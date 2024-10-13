@@ -27,6 +27,8 @@ SemaphoreHandle_t timer_semaphore; // Add semaphore handle timer for audio playb
 TaskHandle_t ota_task_handle = NULL; // Task handle for OTA updating
 TimerHandle_t orphan_timer = NULL;
 
+esp_mqtt_client_handle_t mqtt_client_handle = NULL;
+
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
@@ -48,6 +50,74 @@ extern const uint8_t coop_snooper_test_private_pem_key[];
 const uint8_t *cert = coop_snooper_test_certificate_pem;
 const uint8_t *key = coop_snooper_test_private_pem_key;
 #endif
+
+void error_stop_mqtt(esp_mqtt_client_handle_t mqtt_client)
+{
+    esp_err_t ret;
+
+    ret = esp_mqtt_client_stop(mqtt_client);
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI(TAG, "MQTT client stopped successfully.");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to stop MQTT client: %s", esp_err_to_name(ret));
+    }
+
+    // Optionally destroy the MQTT client to free up resources
+    ret = esp_mqtt_client_destroy(mqtt_client);
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI(TAG, "MQTT client destroyed successfully.");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to destroy MQTT client: %s", esp_err_to_name(ret));
+    }
+}
+
+void error_stop_wifi()
+{
+    esp_err_t ret;
+
+    // Stop Wi-Fi
+    ret = esp_wifi_stop();
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI(TAG, "Wi-Fi stopped successfully.");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to stop Wi-Fi: %s", esp_err_to_name(ret));
+    }
+
+    // Optionally deinitialize Wi-Fi
+    ret = esp_wifi_deinit();
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI(TAG, "Wi-Fi deinitialized successfully.");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to deinitialize Wi-Fi: %s", esp_err_to_name(ret));
+    }
+}
+
+void error_reload()
+{
+    // Stop the MQTT client
+    if (mqtt_client_handle != NULL)
+    {
+        error_stop_mqtt(mqtt_client_handle);
+    }
+
+    // Stop the Wi-Fi
+    error_stop_wifi();
+
+    // Restart the ESP32
+    esp_restart();
+}
 
 void get_mac_address(char *mac_str)
 {
@@ -75,7 +145,7 @@ void squawk(void)
 void orphan_timer_callback(TimerHandle_t xTimer)
 {
     ESP_LOGE(TAG, "No status message received for 2 hours. Triggering reboot!");
-    esp_restart();
+    error_reload();
 }
 
 // Function to reset the timer whenever a message is received
@@ -84,6 +154,7 @@ void reset_orphan_timer(void)
     if (xTimerReset(orphan_timer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Orphan timer failed to reset");
+        error_reload();
     }
     else
     {
@@ -141,13 +212,13 @@ void custom_handle_mqtt_event_disconnected(esp_mqtt_event_handle_t event)
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "Failed to reconnect MQTT client after %d retries. Restarting", retry_count);
-            esp_restart();
+            error_reload();
         }
     }
     else
     {
         ESP_LOGE(TAG, "Network not connected, skipping MQTT reconnection");
-        esp_restart();
+        error_reload();
     }
 }
 
@@ -235,7 +306,7 @@ void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
 
     if (!extract_ota_url_from_event(event, ota_config.url))
     {
-        ESP_LOGE(TAG, "Failed to extract OTA URL from event data");
+        ESP_LOGW(TAG, "OTA URL not found in event data");
         return;
     }
 
@@ -244,9 +315,7 @@ void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
     // Pass the allocated URL string to the OTA task
     if (xTaskCreate(&ota_task, "ota_task", 8192, (void *)&ota_config, 5, &ota_task_handle) != pdPASS)
     {
-        ESP_LOGE(TAG, "Failed to create OTA task.");
-        // If the above task aborts, ask for status so we reset the LED color
-        esp_mqtt_client_publish(ota_config.mqtt_client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
+        error_reload();
     }
 }
 
@@ -268,7 +337,7 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
     }
     else
     {
-        ESP_LOGW(TAG, "Un-Handled topic %.*s", event->topic_len, event->topic);
+        ESP_LOGE(TAG, "Un-Handled topic %.*s", event->topic_len, event->topic);
     }
 }
 
@@ -289,7 +358,7 @@ void custom_handle_mqtt_event_error(esp_mqtt_event_handle_t event)
     {
         ESP_LOGI(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
     }
-    esp_restart();
+    error_reload();
 }
 
 void app_main(void)
@@ -307,7 +376,7 @@ void app_main(void)
 
     mqtt_config_t config = {.certificate = cert, .private_key = key, .broker_uri = CONFIG_AWS_IOT_ENDPOINT};
 
-    esp_mqtt_client_handle_t client = init_mqtt(&config);
+    mqtt_client_handle = init_mqtt(&config);
 
     init_rgb_led();
 
@@ -318,14 +387,14 @@ void app_main(void)
     if (audioSemaphore == NULL)
     {
         ESP_LOGE(TAG, "Failed to create audio semaphore");
-        return;
+        error_reload();
     }
 
     timer_semaphore = xSemaphoreCreateBinary();
     if (timer_semaphore == NULL)
     {
         ESP_LOGE(TAG, "Failed to create timer semaphore");
-        return;
+        error_reload();
     }
 
     xTaskCreate(audio_player_task, "audio_player_task", 8192, NULL, 5, NULL);
@@ -336,13 +405,14 @@ void app_main(void)
     if (orphan_timer == NULL)
     {
         ESP_LOGE(TAG, "Failed to create notification timer");
-        return;
+        error_reload();
     }
 
     // Start the timer when the system boots
     if (xTimerStart(orphan_timer, 0) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to start notification timer");
+        error_reload();
     }
 
     // Infinite loop to prevent exiting app_main
