@@ -32,6 +32,11 @@ extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
 const uint8_t *cert = coop_snooper_tennis_home_certificate_pem;
 const uint8_t *key = coop_snooper_tennis_home_private_pem_key;
+#elif defined(CHARLIE_HOUSE)
+extern const uint8_t coop_snooper_charlie_house_certificate_pem[];
+extern const uint8_t coop_snooper_charlie_house_private_pem_key[];
+const uint8_t *cert = coop_snooper_charlie_house_certificate_pem;
+const uint8_t *key = coop_snooper_charlie_house_private_pem_key;
 #elif defined(FARM_HOUSE)
 extern const uint8_t coop_snooper_farmhouse_certificate_pem[];
 extern const uint8_t coop_snooper_farmhouse_private_pem_key[];
