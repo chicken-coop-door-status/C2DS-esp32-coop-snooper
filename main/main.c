@@ -29,6 +29,8 @@ TimerHandle_t orphan_timer = NULL;
 
 esp_mqtt_client_handle_t mqtt_client_handle = NULL;
 
+char mac_address[18];
+
 #ifdef TENNIS_HOUSE
 extern const uint8_t coop_snooper_tennis_home_certificate_pem[];
 extern const uint8_t coop_snooper_tennis_home_private_pem_key[];
@@ -119,7 +121,7 @@ void error_reload()
     esp_restart();
 }
 
-void get_mac_address(char *mac_str)
+void record_local_mac_address(char *mac_str)
 {
     uint8_t mac[6];
     esp_err_t ret = esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -173,6 +175,9 @@ void custom_handle_mqtt_event_connected(esp_mqtt_event_handle_t event)
 
     msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, 0);
     ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, msg_id);
+
+    msg_id = esp_mqtt_client_subscribe(client, CONFIG_MQTT_SUBSCRIBE_SELF_TEST_SNOOPER_TOPIC, 0);
+    ESP_LOGI(TAG, "Subscribed to topic %s, msg_id=%d", CONFIG_MQTT_SUBSCRIBE_SELF_TEST_SNOOPER_TOPIC, msg_id);
 
     msg_id =
         esp_mqtt_client_publish(client, CONFIG_MQTT_PUBLISH_STATUS_TOPIC, "{\"message\":\"status_request\"}", 0, 0, 0);
@@ -246,21 +251,16 @@ void custom_handle_mqtt_event_subscribe(esp_mqtt_event_handle_t event)
     }
 }
 
-bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
+bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *local_mac_address, char *ota_url)
 {
     bool success = false;
-    char mac_address[18];
     cJSON *root = cJSON_Parse(event->data);
-
-    get_mac_address(mac_address);
-    ESP_LOGW(TAG, "Burned-In MAC Address: %s", mac_address);
-
-    cJSON *host_key = cJSON_GetObjectItem(root, mac_address);
+    cJSON *host_key = cJSON_GetObjectItem(root, local_mac_address);
     const char *host_key_value = cJSON_GetStringValue(host_key);
 
     if (!host_key || !host_key_value)
     {
-        ESP_LOGE(TAG, "Invalid or missing '%s' key in JSON", mac_address);
+        ESP_LOGW(TAG, "'%s' MAC address key not found in JSON", local_mac_address);
     }
     else
     {
@@ -274,7 +274,50 @@ bool extract_ota_url_from_event(esp_mqtt_event_handle_t event, char *ota_url)
     return success;
 }
 
-void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
+void self_test(void)
+{
+    ESP_LOGW(TAG, "Running self-test");
+    // Add your self-test code here
+    set_rgb_led_named_color("LED_SOLID_WHITE");
+    for (int i = 0; i < 3; i++)
+    {
+        ESP_LOGI(TAG, "Self-test iteration %d", i);
+        ESP_LOGI(TAG, "LED_SOLID_RED");
+        set_rgb_led_named_color("LED_SOLID_RED");
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        ESP_LOGI(TAG, "squawk");
+        squawk();
+        ESP_LOGI(TAG, "LED_SOLID_WHITE");
+        set_rgb_led_named_color("LED_SOLID_WHITE");
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        ESP_LOGI(TAG, "squawk");
+        squawk();
+        ESP_LOGI(TAG, "LED_SOLID_BLUE");
+        set_rgb_led_named_color("LED_SOLID_BLUE");
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        ESP_LOGI(TAG, "squawk");
+        squawk();
+    }
+    ESP_LOGW(TAG, "Self-test complete. Rebooting");
+    error_reload();
+}
+
+void custom_handle_mqtt_event_self_test(esp_mqtt_event_handle_t event, char *my_mac_address)
+{
+    cJSON *root = cJSON_Parse(event->data);
+    cJSON *host_key = cJSON_GetObjectItem(root, my_mac_address);
+    if (host_key)
+    {
+        ESP_LOGW(TAG, "MAC address '%s' found in Self Test topic", my_mac_address);
+        self_test();
+    }
+    else
+    {
+        ESP_LOGW(TAG, "MAC address '%s' NOT found in Self Test topic", my_mac_address);
+    }
+}
+
+void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event, char *my_mac_address)
 {
     if (ota_task_handle != NULL)
     {
@@ -295,16 +338,19 @@ void custom_handle_mqtt_event_ota(esp_mqtt_event_handle_t event)
             ota_task_handle = NULL;
         }
     }
+    else
+    {
+        ESP_LOGI(TAG, "OTA task handle is NULL");
+    }
 
     // Parse the message and get any URL associated with our MAC address
     assert(event->data != NULL);
     assert(event->data_len > 0);
 
-    char ota_url[512];
     ota_config_t ota_config;
     ota_config.mqtt_client = event->client;
 
-    if (!extract_ota_url_from_event(event, ota_config.url))
+    if (!extract_ota_url_from_event(event, my_mac_address, ota_config.url))
     {
         ESP_LOGW(TAG, "OTA URL not found in event data");
         return;
@@ -331,9 +377,15 @@ void custom_handle_mqtt_event_data(esp_mqtt_event_handle_t event)
     {
         custom_handle_mqtt_event_subscribe(event);
     }
+    else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_SELF_TEST_SNOOPER_TOPIC, event->topic_len) == 0)
+    {
+        // Use the global mac_address variable to pass the MAC address to the self-test function
+        custom_handle_mqtt_event_self_test(event, mac_address);
+    }
     else if (strncmp(event->topic, CONFIG_MQTT_SUBSCRIBE_OTA_UPDATE_SNOOPER_TOPIC, event->topic_len) == 0)
     {
-        custom_handle_mqtt_event_ota(event);
+        // Use the global mac_address variable to pass the MAC address to the OTA function
+        custom_handle_mqtt_event_ota(event, mac_address);
     }
     else
     {
@@ -366,6 +418,9 @@ void app_main(void)
     init_nvs();
 
     init_wifi();
+
+    record_local_mac_address(mac_address);
+    ESP_LOGW(TAG, "Burned-In MAC Address: %s", mac_address);
 
     init_time_sync();
 
